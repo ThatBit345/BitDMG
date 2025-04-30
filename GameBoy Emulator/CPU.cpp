@@ -1,10 +1,13 @@
 #include "CPU.h"
 #include "Log.h"
 
-CPU::CPU()
+CPU::CPU(std::shared_ptr<Memory> memory)
 {
+	// Values after boot sequence
 	this->sp = 0xFFFE;
 	this->pc = 0x0100;
+
+	this->p_mem = memory;
 }
 
 void CPU::Cycle()
@@ -57,4 +60,3 @@ unsigned short CPU::GetHL()
 	return ((unsigned short)this->registers.h << 8) | this->registers.l;
 }
 #pragma endregion
-

@@ -1,4 +1,6 @@
 #include "Memory.h"
+
+#include <string>
 #include <iostream>
 #include <fstream>
 
@@ -11,6 +13,9 @@ Memory::Memory()
 
 bool Memory::LoadRom(const char* path)
 {
+	std::string logTxt = "Loading ROM file: " + std::string(path);
+	Log::LogInfo(logTxt.c_str());
+
 	std::ifstream file(path, std::ios::out | std::ios::binary);
 	if (!file)
 	{
@@ -25,6 +30,8 @@ bool Memory::LoadRom(const char* path)
 		Log::LogError("Error while reading ROM file!");
 		return false;
 	}
+
+	Log::LogInfo("Loaded ROM succesfully!");
 
 	return true;
 }

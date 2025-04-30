@@ -1,5 +1,7 @@
 #pragma once
+#include <memory>
 
+#include "Memory.h"
 
 struct Registers
 {
@@ -20,7 +22,8 @@ struct FlagRegister
 	bool halfCarry = 0;
 	bool carry = 0;
 
-	unsigned char toU8()
+	// 8 Bits -> ZSHC0000
+	unsigned char toU8() const
 	{
 		unsigned char ret = 0x00;
 		ret |= zero << 7;
@@ -41,14 +44,15 @@ private:
 	unsigned short sp;
 	unsigned short pc;
 
+	std::shared_ptr<Memory> p_mem;
+
 public: 
 
-	CPU();
+	CPU(std::shared_ptr<Memory> memory);
 
 	void Cycle();
 
-	// Dual register handling
-
+	#pragma region DOUBLE REGISTERS
 	void SetAF(unsigned short value);
 	void SetBC(unsigned short value);
 	void SetDE(unsigned short value);
@@ -58,4 +62,8 @@ public:
 	unsigned short GetBC();
 	unsigned short GetDE();
 	unsigned short GetHL();
+	#pragma endregion
+
+
+
 };
