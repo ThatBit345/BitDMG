@@ -19,9 +19,11 @@ int main(int argc, char* argv[])
 
     Log::LogInfo("Emulator started succesfully!");
 
-    while(true)
+    bool quit = false;
+
+    while(!quit)
     {
-        cpu.Cycle();
+        quit = !cpu.Cycle();
     }
 }
 

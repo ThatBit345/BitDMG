@@ -50,7 +50,7 @@ public:
 
 	CPU(std::shared_ptr<Memory> memory);
 
-	void Cycle();
+	bool Cycle();
 
 	#pragma region DOUBLE REGISTERS
 	void SetAF(unsigned short value);
@@ -64,6 +64,11 @@ public:
 	unsigned short GetHL();
 	#pragma endregion
 
+	#pragma region OPCODES
 
+	void NOP();		// NOP
+	void LD_SP();	// LD nn, SP
+
+	#pragma endregion
 
 };

@@ -1,18 +1,46 @@
 #include "CPU.h"
 #include "Log.h"
 
+#include <iostream>
+#include <sstream>
+
 CPU::CPU(std::shared_ptr<Memory> memory)
 {
 	// Values after boot sequence
 	this->sp = 0xFFFE;
-	this->pc = 0x0100;
+	this->pc = 0x0101;
 
 	this->p_mem = memory;
 }
 
-void CPU::Cycle()
+bool CPU::Cycle()
 {
+	unsigned char opcode = this->p_mem->readU8mem(this->pc++);
 	
+	// Opcode decoding, method described by Scott Mansell in the website below
+	// https://archive.gbdev.io/salvage/decoding_gbz80_opcodes/Decoding%20Gamboy%20Z80%20Opcodes.html
+	unsigned char x = opcode >> 6;
+	unsigned char y = (opcode & 0b00111000) >> 3;
+	unsigned char z = opcode & 0b00000111;
+
+	if(x == 0)
+	{
+		if(z == 0)
+		{
+			if (y == 0) NOP();
+		}
+	}
+	else
+	{
+		// Print error to console
+		std::string errorTxt = "Opcode not found: ";
+		std::stringstream str;
+		str << std::hex << std::uppercase << (int)opcode;
+		errorTxt = errorTxt + str.str();
+		Log::LogError(errorTxt.c_str());
+	}
+	
+	return false;
 }
 
 #pragma region DOUBLE REGISTERS
@@ -60,3 +88,17 @@ unsigned short CPU::GetHL()
 	return ((unsigned short)this->registers.h << 8) | this->registers.l;
 }
 #pragma endregion
+
+void CPU::NOP()
+{
+	
+}
+
+void CPU::LD_SP() // LD address, SP
+{
+	unsigned char lsb = this->p_mem->readU8mem(this->pc++);
+	unsigned char msb = this->p_mem->readU8mem(this->pc++);
+
+	unsigned short address = ((unsigned short)lsb << 8) | msb;
+	this->p_mem->writeU16mem(address, this->sp);
+}

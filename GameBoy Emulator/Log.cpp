@@ -1,5 +1,7 @@
 #include "Log.h"
 
+#include <iostream>
+
 void Log::LogInfo(const char* txt)
 {
 	std::cout << "[INFO] " << txt << std::endl;
