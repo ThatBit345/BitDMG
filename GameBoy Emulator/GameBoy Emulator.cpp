@@ -8,7 +8,5 @@ int main()
 {
     Log::LogInfo("Starting emulator");
     CPU cpu;
-
-    cpu.SetAF(0x1234);
 }
 

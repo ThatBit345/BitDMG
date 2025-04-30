@@ -3,15 +3,13 @@
 
 CPU::CPU()
 {
-	this->registers.pc = 0x0100;
-	this->registers.sp = 0xFFFE;
+	this->sp = 0xFFFE;
+	this->pc = 0x0100;
+}
 
-	this->flagRegister.zero = 0;
-	this->flagRegister.subtract = 0;
-	this->flagRegister.halfCarry = 0;
-	this->flagRegister.carry = 0;
-
-	Log::LogInfo("Registers initialized");
+void CPU::Cycle()
+{
+	
 }
 
 #pragma region DOUBLE REGISTERS
