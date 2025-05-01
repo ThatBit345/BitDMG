@@ -10,7 +10,6 @@ struct Registers
 	unsigned char c = 0x00;
 	unsigned char d = 0x00;
 	unsigned char e = 0x00;
-	unsigned char f = 0x00;
 	unsigned char h = 0x00;
 	unsigned char l = 0x00;
 };
@@ -23,15 +22,23 @@ struct FlagRegister
 	bool carry = 0;
 
 	// 8 Bits -> ZSHC0000
-	unsigned char toU8() const
+	unsigned char toU8()
 	{
 		unsigned char ret = 0x00;
-		ret |= zero << 7;
-		ret |= subtract << 6;
-		ret |= halfCarry << 5;
-		ret |= carry << 4;
+		ret |= this->zero << 7;
+		ret |= this->subtract << 6;
+		ret |= this->halfCarry << 5;
+		ret |= this->carry << 4;
 
 		return ret;
+	}
+
+	void fromU8(unsigned char byte)
+	{
+		this->zero = ((byte & 0b10000000) >> 7 == 1) ? true : false;
+		this->subtract = ((byte & 0b01000000) >> 6 == 1) ? true : false;
+		this->halfCarry = ((byte & 0b00100000) >> 5 == 1) ? true : false;
+		this->carry = ((byte & 0b00010000) >> 4 == 1) ? true : false;
 	}
 };
 
@@ -66,8 +73,13 @@ public:
 
 	#pragma region OPCODES
 
-	void NOP();		// NOP
-	void LD_SP();	// LD nn, SP
+	void NOP();						// NOP
+	void LD_SP();					// LD address, SP
+	void STOP();					// STOP
+	void JR_s8();					// JR s8
+	void JR_C(unsigned char cond);	// JR cond
+	void LD_RP(unsigned char reg);	// LD to register pair (with SP)
+	void ADD_HL(unsigned char reg);	// ADD HL
 
 	#pragma endregion
 
