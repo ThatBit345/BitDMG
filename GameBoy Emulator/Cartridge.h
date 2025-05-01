@@ -1,17 +1,37 @@
 #pragma once
+#include <vector>
+#include <string>
 
 enum class Mapper
 {
-	None = 0, MBC1, MBC2, MBC3, MBC5, MBC6, MBC7, MMM01, M161, HuC1, HuC3
+	None = 0, MBC1, MBC2, MBC3, MBC5, MBC6, MBC7, MMM01, HuC1, HuC3
+};
+
+struct CartridgeHardware
+{
+	Mapper mapper = Mapper::None;
+	bool hasRam = false;
+	bool hasTimer = false;
+	bool hasBattery = false;
+	bool hasRumble = false;
+	bool hasSensor = false;
 };
 
 class Cartridge
 {
 private:
+	std::vector<unsigned char> m_Rom;
+	std::string m_CartName;
+	CartridgeHardware m_Hardware;
 
-	Mapper mapper;
+	bool m_IsValid;
+
+	void SetHardware(Mapper mapper, bool ram, bool battery, bool timer, bool rumble, bool sensor);
 
 public:
 
+	Cartridge(const char* romPath);
 
+	inline bool IsValid() { return this->m_IsValid; }
+	unsigned char* GetRom();
 };

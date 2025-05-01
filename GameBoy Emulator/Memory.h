@@ -1,6 +1,8 @@
 #pragma once
 #include <array>
 
+#include "Cartridge.h"
+
 class Memory
 {
 private:
@@ -10,7 +12,7 @@ public:
 
 	Memory();
 
-	bool LoadRom(const char* path);
+	bool LoadCartridge(Cartridge cart);
 
 	unsigned char readU8mem(int address);
 	void writeU8mem(int address, unsigned char value);

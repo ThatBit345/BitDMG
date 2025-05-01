@@ -4,6 +4,7 @@
 #include "Log.h"
 #include "Memory.h"
 #include "CPU.h"
+#include "Cartridge.h"
 
 int main(int argc, char* argv[])
 {
@@ -11,9 +12,16 @@ int main(int argc, char* argv[])
     CPU cpu(memory);
 
     std::filesystem::path romPath = std::filesystem::current_path() / "01-special.gb";
+    Cartridge cartridge(romPath.string().c_str());
 
-    if(!memory->LoadRom(romPath.string().c_str()))
+    if(!cartridge.IsValid())
     {
+        return 1;
+    }
+
+    if(!memory->LoadCartridge(cartridge))
+    {
+        Log::LogError("Error loading cartridge!");
         return 1;
     }
 
