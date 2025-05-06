@@ -4,16 +4,24 @@
 #include <iostream>
 #include <sstream>
 
-CPU::CPU(std::shared_ptr<Memory> memory)
+CPU::CPU(std::shared_ptr<Memory> memory) : m_SP(0xFFFE), m_PC(0x0100)
 {
-	// Values after boot sequence
-	this->m_SP = 0xFFFE;
-	this->m_PC = 0x0100;
+	// Mimic state after boot ROM
+	m_Registers.a = 0x01;
+	m_Registers.b = 0x00;
+	m_Registers.c = 0x13;
+	m_Registers.d = 0x00;
+	m_Registers.e = 0xD8;
+	m_Registers.h = 0x01;
+	m_Registers.l = 0x4D;
 
-	this->m_IME = false;
-	this->m_EnableIME = false;
+	m_FlagRegister.zero = true;
+	m_FlagRegister.subtract = false;
 
-	this->m_Mem = memory;
+	m_IME = false;
+	m_EnableIME = false;
+
+	m_Mem = memory;
 }
 
 bool CPU::Cycle()

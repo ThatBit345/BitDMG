@@ -23,7 +23,9 @@ public:
 	Cartridge(const char* romPath);
 
 	inline bool IsValid() { return m_IsValid; }
-	unsigned char* GetRom();
+	unsigned char ReadU8(int address);
+	unsigned char ReadU16(int address);
+	void CheckROMWrite(int address, unsigned char value);
 	inline Mapper GetMapper() { return m_Hardware.mapper; }
 
 private:
@@ -31,6 +33,7 @@ private:
 	std::string m_CartName;
 	CartridgeHardware m_Hardware;
 
+	unsigned char m_ROMBank;
 	bool m_IsValid;
 
 	void SetHardware(Mapper mapper, bool ram, bool battery, bool timer, bool rumble, bool sensor);

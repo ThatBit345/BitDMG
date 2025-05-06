@@ -8,14 +8,11 @@
 
 int main(int argc, char* argv[])
 {
-    std::shared_ptr<Memory> memory = std::make_shared<Memory>();
-    CPU cpu(memory);
-
     std::filesystem::path romPath;
     if (argc == 1) romPath = std::filesystem::current_path() / "01-special.gb";
     else romPath = argv[1];
 
-    if(romPath.empty())
+    if (romPath.empty())
     {
         Log::LogError("File not found!");
         return 1;
@@ -23,23 +20,14 @@ int main(int argc, char* argv[])
 
     Cartridge cartridge(romPath.string().c_str());
 
-    if(!cartridge.IsValid())
+    if (!cartridge.IsValid())
     {
         Log::LogError("Error loading ROM file!");
         return 1;
     }
 
-    if (cartridge.GetMapper() != Mapper::None)
-    {
-        Log::LogError("Mapper not supported!");
-        return 1;
-    }
-
-    if(!memory->LoadCartridge(cartridge))
-    {
-        Log::LogError("Error loading cartridge!");
-        return 1;
-    }
+    std::shared_ptr<Memory> memory = std::make_shared<Memory>(cartridge);
+    CPU cpu(memory);
 
     Log::LogInfo("Emulator started succesfully!");
 

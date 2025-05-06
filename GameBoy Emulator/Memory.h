@@ -6,9 +6,7 @@
 class Memory
 {
 public:
-	Memory();
-
-	bool LoadCartridge(Cartridge cart);
+	Memory(const Cartridge& cart);
 
 	unsigned char ReadU8(int address);
 	void WriteU8(int address, unsigned char value);
@@ -18,6 +16,8 @@ public:
 	void WriteU16(int address, unsigned char lsb, unsigned char msb);
 
 private:
-	std::array<unsigned char, 0xFFFF> memory;
+	std::array<unsigned char, 0x10000> m_Memory;
+
+	Cartridge m_Cartridge;
 };
 

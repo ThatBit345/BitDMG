@@ -8,7 +8,7 @@
 
 #include "Log.h"
 
-Cartridge::Cartridge(const char* romPath)
+Cartridge::Cartridge(const char* romPath) : m_ROMBank(1)
 {
 	std::string logTxt = "Loading ROM file: " + std::string(romPath);
 	Log::LogInfo(logTxt.c_str());
@@ -177,9 +177,48 @@ Cartridge::Cartridge(const char* romPath)
 	this->m_IsValid = true;
 }
 
-unsigned char* Cartridge::GetRom()
+unsigned char Cartridge::ReadU8(int address)
 {
-	return m_Rom.data();
+	if (address >= 0x4000 && m_Hardware.mapper == Mapper::MBC1) // In banked area
+	{
+		unsigned short bankAddress = address - 0x4000;
+		return m_Rom[bankAddress + (m_ROMBank * (unsigned short)0x4000)];
+	}
+	
+	return m_Rom[address];
+}
+
+unsigned char Cartridge::ReadU16(int address)
+{
+	if (address >= 0x4000 && m_Hardware.mapper == Mapper::MBC1) // In banked area
+	{
+		unsigned short bankAddress = address - 0x4000;
+
+		unsigned char lsb = m_Rom[bankAddress + (m_ROMBank * (unsigned short)0x4000)];
+		unsigned char msb = m_Rom[bankAddress + 1 + (m_ROMBank * (unsigned short)0x4000)];
+
+		return ((unsigned short)lsb << 8) | msb;
+	}
+
+	unsigned char lsb = m_Rom[address];
+	unsigned char msb = m_Rom[address + 1];
+
+	return ((unsigned short)lsb << 8) | msb;
+}
+
+void Cartridge::CheckROMWrite(int address, unsigned char value)
+{
+	if(m_Hardware.mapper == Mapper::MBC1)
+	{
+		if (address >= 0x2000 && address <= 0x3FFF) // ROM Bank switch
+		{
+			m_ROMBank = (value == 0) ? 1 : (value & 0x00011111);
+		}
+		else if (address >= 0x4000 && address <= 0x5FFF && m_Rom[0x0148] >= 0x05) // Second RAM/ROM Bank switch (only if ROM > 1MiB)
+		{
+			// TO-DO
+		}
+	}
 }
 
 void Cartridge::SetHardware(Mapper mapper, bool ram, bool battery, bool timer, bool rumble, bool sensor)
