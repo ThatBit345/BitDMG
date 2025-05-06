@@ -22,8 +22,9 @@ class Cartridge
 public:
 	Cartridge(const char* romPath);
 
-	inline bool IsValid() { return this->m_IsValid; }
+	inline bool IsValid() { return m_IsValid; }
 	unsigned char* GetRom();
+	inline Mapper GetMapper() { return m_Hardware.mapper; }
 
 private:
 	std::vector<unsigned char> m_Rom;

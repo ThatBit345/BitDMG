@@ -62,6 +62,8 @@ private:
 
 	unsigned short m_SP;
 	unsigned short m_PC;
+	bool m_IME;
+	bool m_EnableIME;
 
 	std::shared_ptr<Memory> m_Mem;
 
@@ -85,7 +87,7 @@ private:
 
 	#pragma region OPCODES
 	bool IsValidOpcode(unsigned char opcode);
-	void UninplementedOpcode(int opcode);
+	bool UninplementedOpcode(int opcode);
 
 	void NOP();											// NOP
 	void LD_r16_imm16(unsigned char reg);				// LD r16, imm16
@@ -121,6 +123,37 @@ private:
 	void XOR_a_r8(unsigned char reg);					// XOR A, r8
 	void OR_a_r8(unsigned char reg);					// OR A, r8
 	void CP_a_r8(unsigned char reg);					// CP A, r8
+
+	void ADD_a_imm8();									// ADD A, imm8
+	void ADC_a_imm8();									// ADC A, imm8
+	void SUB_a_imm8();									// SUB A, imm8
+	void SBC_a_imm8();									// SBC A, imm8
+	void AND_a_imm8();									// AND A, imm8
+	void XOR_a_imm8();									// XOR A, imm8
+	void OR_a_imm8();									// OR A, imm8
+	void CP_a_imm8();									// CP A, imm8
+	void RET_C(unsigned char cond);						// RET cond
+	void RET();											// RET
+	void RETI();										// RETI
+	void JP_C_imm16(unsigned char cond);				// JP cond, imm16
+	void JP_imm16();									// JP imm16	
+	void JP_HL();										// JP HL
+	void CALL_C_imm16(unsigned char cond);				// CALL cond, imm16
+	void CALL_imm16();									// CALL imm16
+	void RST_tgt3(unsigned char tgt);					// RST tgt3
+	void POP_r16(unsigned char reg);					// POP r16stk
+	void PUSH_r16(unsigned char reg);					// PUSH r16stk
+	void LDH_c_a();										// LDH [C], A
+	void LDH_imm8_a();									// LDH [imm8], A
+	void LD_imm16_a();									// LD [imm16], A
+	void LDH_a_c();										// LDH A, [C]
+	void LDH_a_imm8();									// LDH A, [imm8]
+	void LD_a_imm16();									// LD A, [imm16]
+	void ADD_SP_imm8();									// ADD SP, imm8
+	void LD_HL_SLimm8();								// LD HL, SP + imm8
+	void LD_SP_HL();									// LD SP, HL
+	void DI();											// DI
+	void EI();											// EI
 	#pragma endregion
 
 };

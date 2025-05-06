@@ -25,6 +25,13 @@ int main(int argc, char* argv[])
 
     if(!cartridge.IsValid())
     {
+        Log::LogError("Error loading ROM file!");
+        return 1;
+    }
+
+    if (cartridge.GetMapper() != Mapper::None)
+    {
+        Log::LogError("Mapper not supported!");
         return 1;
     }
 
@@ -40,9 +47,9 @@ int main(int argc, char* argv[])
 
     while(!quit)
     {
-        quit = !cpu.Cycle();
+        quit = cpu.Cycle();
     }
 
-    std::getchar();
+    std::getchar(); // Prevent console from closing
 }
 

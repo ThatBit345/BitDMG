@@ -8,7 +8,10 @@ CPU::CPU(std::shared_ptr<Memory> memory)
 {
 	// Values after boot sequence
 	this->m_SP = 0xFFFE;
-	this->m_PC = 0x0101;
+	this->m_PC = 0x0100;
+
+	this->m_IME = false;
+	this->m_EnableIME = false;
 
 	this->m_Mem = memory;
 }
@@ -16,11 +19,11 @@ CPU::CPU(std::shared_ptr<Memory> memory)
 bool CPU::Cycle()
 {
 	unsigned char opcode = m_Mem->ReadU8(m_PC++);
-	
+
 	if(!IsValidOpcode(opcode))
 	{
 		m_PC--;
-		return;
+		return false;
 	}
 
 	// Opcode decoding, method described by Scott Mansell in the website below
@@ -33,14 +36,14 @@ bool CPU::Cycle()
 	unsigned char z = opcode & 0b00000111;
 
 	unsigned char p = (opcode & 0b00110000) >> 4;
-	unsigned char q = (opcode & 0b00001000) >> 3;
+	bool q = (opcode & 0b00001000) >> 3;
 
 	if(opcode == 0xCB)
 	{
 		opcode = m_Mem->ReadU8(m_PC++);
 
 		Log::LogError("CPU: PREFIX FUNCTION");
-		UninplementedOpcode(opcode);
+		return UninplementedOpcode(opcode);
 	}
 	else if(block == 0)
 	{
@@ -62,13 +65,13 @@ bool CPU::Cycle()
 		{
 			if (q == 0) LD_r16_a(p);
 			else if (q == 1) LD_a_r16(p);
-			else UninplementedOpcode(opcode);
+			else return UninplementedOpcode(opcode);
 		}
 		else if(z == 3)
 		{
 			if (q == 0) INC_r16(p);
 			else if (q == 1) DEC_r16(p);
-			else UninplementedOpcode(opcode);
+			else return UninplementedOpcode(opcode);
 		}
 		else if(z == 4)
 		{
@@ -92,7 +95,7 @@ bool CPU::Cycle()
 			else if (y == 5) CPL();
 			else if (y == 6) SCF();
 			else if (y == 7) CCF();
-			else UninplementedOpcode(opcode);
+			else return UninplementedOpcode(opcode);
 		}
 	}
 	else if (block == 1)
@@ -110,17 +113,78 @@ bool CPU::Cycle()
 		else if (y == 5) XOR_a_r8(z);
 		else if (y == 6) OR_a_r8(z);
 		else if (y == 7) CP_a_r8(z);
-		else UninplementedOpcode(opcode);
+		else return UninplementedOpcode(opcode);
 	}
 	else if (block == 3)
 	{
-		
+		if (z == 0)
+		{
+			if (y <= 3) RET_C(y);
+			else if (y == 4) LDH_imm8_a();
+			else if (y == 5) ADD_SP_imm8();
+			else if (y == 6) LDH_a_imm8();
+			else if (y == 7) LD_HL_SLimm8();
+			else return UninplementedOpcode(opcode);
+		}
+		else if (z == 1)
+		{
+			if (q == 0) POP_r16(p);
+			else if (y == 1) RET();
+			else if (y == 3) RETI();
+			else if (y == 5) JP_HL();
+			else if (y == 7) LD_SP_HL();
+			else return UninplementedOpcode(opcode);
+		}
+		else if (z == 2)
+		{
+			if (y <= 3) JP_C_imm16(y);
+			else if (y == 4) LDH_c_a();
+			else if (y == 5) LD_imm16_a();
+			else if (y == 6) LDH_a_c();
+			else if (y == 7) LD_a_imm16();
+			else return UninplementedOpcode(opcode);
+		}
+		else if (z == 3)
+		{
+			if (y == 0) JP_imm16();
+			else if (y == 6) DI();
+			else if (y == 7) EI();
+			else return UninplementedOpcode(opcode);
+		}
+		else if (z == 4) CALL_C_imm16(y);
+		else if (z == 5)
+		{
+			if (q == 0) PUSH_r16(p);
+			else if(y == 1) CALL_imm16();
+			else return UninplementedOpcode(opcode);
+		}
+		else if (z == 6)
+		{
+			if (y == 0) ADD_a_imm8();
+			else if (y == 1) ADC_a_imm8();
+			else if (y == 2) SUB_a_imm8();
+			else if (y == 3) SBC_a_imm8();
+			else if (y == 4) AND_a_imm8();
+			else if (y == 5) XOR_a_imm8();
+			else if (y == 6) OR_a_imm8();
+			else if (y == 7) CP_a_imm8();
+			else return UninplementedOpcode(opcode);
+		}
+		else if (z == 7) RST_tgt3(y);
+		else return UninplementedOpcode(opcode);
 	}
 	else
 	{
-		UninplementedOpcode(opcode);
+		return UninplementedOpcode(opcode);
 	}
 	
+	// Enable interrupts after the instruction (used by the EI instruction)
+	if(m_EnableIME)
+	{
+		m_IME = true;
+		m_EnableIME = false;
+	}
+
 	return false;
 }
 
@@ -281,20 +345,20 @@ unsigned short CPU::GetHL()
 
 bool CPU::IsValidOpcode(unsigned char opcode)
 {
-	return opcode == 0xD3 ||
-		opcode == 0xDB ||
-		opcode == 0xDD ||
-		opcode == 0xE3 ||
-		opcode == 0xE4 ||
-		opcode == 0xEB ||
-		opcode == 0xEC ||
-		opcode == 0xED ||
-		opcode == 0xF4 ||
-		opcode == 0xFC ||
-		opcode == 0xFD;
+	return opcode != 0xD3 &&
+		opcode != 0xDB &&
+		opcode != 0xDD &&
+		opcode != 0xE3 &&
+		opcode != 0xE4 &&
+		opcode != 0xEB &&
+		opcode != 0xEC &&
+		opcode != 0xED &&
+		opcode != 0xF4 &&
+		opcode != 0xFC &&
+		opcode != 0xFD;
 }
 
-void CPU::UninplementedOpcode(int opcode)
+bool CPU::UninplementedOpcode(int opcode)
 {
 	// Print error to console
 	std::string errorTxt = "Opcode not found: ";
@@ -302,6 +366,8 @@ void CPU::UninplementedOpcode(int opcode)
 	str << std::hex << std::uppercase << (int)opcode;
 	errorTxt = errorTxt + str.str();
 	Log::LogError(errorTxt.c_str());
+
+	return true;
 }
 
 // No operation
@@ -676,4 +742,330 @@ void CPU::CP_a_r8(unsigned char reg)
 	m_FlagRegister.subtract = true;
 	m_FlagRegister.halfCarry = ((result & 0x00001000) >> 3) == 0;
 	m_FlagRegister.carry = ((result & 0x10000000) >> 7) == 0;
+}
+
+// Add the immediate value and A. Stored in A.
+void CPU::ADD_a_imm8()
+{
+	unsigned char immediate = m_Mem->ReadU8(m_PC++);
+
+	unsigned char result = m_Registers.a + immediate;
+
+	m_FlagRegister.zero = result == 0;
+	m_FlagRegister.subtract = false;
+	m_FlagRegister.halfCarry = ((result & 0x00001000) >> 3) == 0;
+	m_FlagRegister.carry = ((result & 0x10000000) >> 7) == 0;
+}
+
+// Add the immediate value, A and the carry flag. Stored in A.
+void CPU::ADC_a_imm8()
+{
+	unsigned char immediate = m_Mem->ReadU8(m_PC++);
+
+	unsigned char result = m_Registers.a + immediate + m_FlagRegister.carry;
+
+	m_FlagRegister.zero = result == 0;
+	m_FlagRegister.subtract = false;
+	m_FlagRegister.halfCarry = ((result & 0x00001000) >> 3) == 0;
+	m_FlagRegister.carry = ((result & 0x10000000) >> 7) == 0;
+}
+
+// Subtract the immediate value and A. Stored in A.
+void CPU::SUB_a_imm8()
+{
+	unsigned char immediate = m_Mem->ReadU8(m_PC++);
+
+	unsigned char result = m_Registers.a - immediate;
+
+	m_FlagRegister.zero = result == 0;
+	m_FlagRegister.subtract = true;
+	m_FlagRegister.halfCarry = ((result & 0x00001000) >> 3) == 0;
+	m_FlagRegister.carry = ((result & 0x10000000) >> 7) == 0;
+}
+
+// Subtract the immediate value, A and the carry flag. Stored in A.
+void CPU::SBC_a_imm8()
+{
+	unsigned char immediate = m_Mem->ReadU8(m_PC++);
+
+	unsigned char result = m_Registers.a - immediate - m_FlagRegister.carry;
+
+	m_FlagRegister.zero = result == 0;
+	m_FlagRegister.subtract = true;
+	m_FlagRegister.halfCarry = ((result & 0x00001000) >> 3) == 0;
+	m_FlagRegister.carry = ((result & 0x10000000) >> 7) == 0;
+}
+
+// Bitwise AND the immediate value and A. Stored in A.
+void CPU::AND_a_imm8()
+{
+	unsigned char immediate = m_Mem->ReadU8(m_PC++);
+
+	m_Registers.a = m_Registers.a & immediate;
+
+	m_FlagRegister.zero = m_Registers.a == 0;
+	m_FlagRegister.subtract = false;
+	m_FlagRegister.halfCarry = true;
+	m_FlagRegister.carry = false;
+}
+
+// Bitwise XOR the immediate value and A. Stored in A.
+void CPU::XOR_a_imm8()
+{
+	unsigned char immediate = m_Mem->ReadU8(m_PC++);
+
+	m_Registers.a = m_Registers.a ^ immediate;
+
+	m_FlagRegister.zero = m_Registers.a == 0;
+	m_FlagRegister.subtract = false;
+	m_FlagRegister.halfCarry = false;
+	m_FlagRegister.carry = false;
+}
+
+// Bitwise OR the immediate value and A. Stored in A.
+void CPU::OR_a_imm8()
+{
+	unsigned char immediate = m_Mem->ReadU8(m_PC++);
+
+	m_Registers.a = m_Registers.a | immediate;
+
+	m_FlagRegister.zero = m_Registers.a == 0;
+	m_FlagRegister.subtract = false;
+	m_FlagRegister.halfCarry = false;
+	m_FlagRegister.carry = false;
+}
+
+// Compare the immediate value and A.
+void CPU::CP_a_imm8()
+{
+	unsigned char immediate = m_Mem->ReadU8(m_PC++);
+
+	unsigned char result = m_Registers.a - immediate;
+
+	m_FlagRegister.zero = result == 0;
+	m_FlagRegister.subtract = true;
+	m_FlagRegister.halfCarry = ((result & 0x00001000) >> 3) == 0;
+	m_FlagRegister.carry = ((result & 0x10000000) >> 7) == 0;
+}
+
+// Return conditional.
+void CPU::RET_C(unsigned char cond)
+{
+	unsigned short returnAddress = m_Mem->ReadU16(m_SP);
+
+	if (cond == 0 && !m_FlagRegister.zero) // Not zero
+	{
+		m_PC = returnAddress;
+	}
+	else if (cond == 1 && m_FlagRegister.zero) // Zero
+	{
+		m_PC = returnAddress;
+	}
+	else if (cond == 2 && m_FlagRegister.carry) // No carry
+	{
+		m_PC = returnAddress;
+	}
+	else if (cond == 3 && m_FlagRegister.carry) // Carry
+	{
+		m_PC = returnAddress;
+	}
+}
+
+// Return.
+void CPU::RET()
+{
+	m_PC = m_Mem->ReadU16(m_SP);
+}
+
+// Return and enable interrupts.
+void CPU::RETI()
+{
+	m_IME = true;
+	RET();
+}
+
+// Jump to immediate conditionally.
+void CPU::JP_C_imm16(unsigned char cond)
+{
+	unsigned short jumpAddress = m_Mem->ReadU16(m_PC++);
+
+	if (cond == 0 && !m_FlagRegister.zero) // Not zero
+	{
+		m_PC = jumpAddress;
+	}
+	else if (cond == 1 && m_FlagRegister.zero) // Zero
+	{
+		m_PC = jumpAddress;
+	}
+	else if (cond == 2 && m_FlagRegister.carry) // No carry
+	{
+		m_PC = jumpAddress;
+	}
+	else if (cond == 3 && m_FlagRegister.carry) // Carry
+	{
+		m_PC = jumpAddress;
+	}
+}
+
+// Jump to immediate.
+void CPU::JP_imm16()
+{
+	unsigned short jumpAddress = m_Mem->ReadU16(m_PC++);
+	m_PC = jumpAddress;
+}
+
+// Jump to address in HL.
+void CPU::JP_HL()
+{
+	m_PC = GetHL();
+}
+
+// Call function conditionally.
+void CPU::CALL_C_imm16(unsigned char cond)
+{
+	if (cond == 0 && !m_FlagRegister.zero) // Not zero
+	{
+		CALL_imm16();
+	}
+	else if (cond == 1 && m_FlagRegister.zero) // Zero
+	{
+		CALL_imm16();
+	}
+	else if (cond == 2 && m_FlagRegister.carry) // No carry
+	{
+		CALL_imm16();
+	}
+	else if (cond == 3 && m_FlagRegister.carry) // Carry
+	{
+		CALL_imm16();
+	}
+}
+
+// Call function.
+void CPU::CALL_imm16()
+{
+	unsigned short jumpAddress = m_Mem->ReadU16(m_PC++);
+
+	// Write return address in the stack
+	m_SP--;
+	m_Mem->WriteU16(m_SP, m_PC);
+
+	m_PC = jumpAddress;
+}
+
+// Reset/call function in target vector.
+void CPU::RST_tgt3(unsigned char tgt)
+{
+	// Write return address in the stack
+	m_SP--;
+	m_Mem->WriteU16(m_SP, m_PC);
+
+	m_PC = (unsigned short)tgt;
+}
+
+// Pop stack to register r16.
+void CPU::POP_r16(unsigned char reg)
+{
+	SetR16(reg, m_Mem->ReadU16(m_SP));
+	m_SP += 2;
+}
+
+// Push register r16 into stack.
+void CPU::PUSH_r16(unsigned char reg)
+{
+	m_Mem->WriteU16(m_SP, GetR16(reg));
+	m_SP -= 2;
+}
+
+// Load from A into address C + 0xFF00.
+void CPU::LDH_c_a()
+{
+	unsigned short address = m_Registers.c + 0xFF;
+	m_Mem->WriteU8(address, m_Registers.a);
+}
+
+// Load from A into address imm8 + 0xFF00.
+void CPU::LDH_imm8_a()
+{
+	unsigned short address = m_Mem->ReadU8(m_PC++) + 0xFF;
+	m_Mem->WriteU8(address, m_Registers.a);
+}
+
+// Load from A into address imm16.
+void CPU::LD_imm16_a()
+{
+	unsigned char lsb = m_Mem->ReadU8(m_PC++);
+	unsigned char msb = m_Mem->ReadU8(m_PC++);
+
+	unsigned short address = ((unsigned short)lsb << 8) | msb;
+
+	m_Mem->WriteU8(address, m_Registers.a);
+}
+
+// Load from address C + 0xFF00 into register A.
+void CPU::LDH_a_c()
+{
+	unsigned short address = m_Registers.c + 0xFF;
+	m_Registers.a = m_Mem->ReadU8(address);
+}
+
+// Load from address imm8 + 0xFF00 into register A.
+void CPU::LDH_a_imm8()
+{
+	unsigned short address = m_Mem->ReadU8(m_PC++) + 0xFF;
+	m_Registers.a = m_Mem->ReadU8(address);
+}
+
+// Load from address imm16 into register A.
+void CPU::LD_a_imm16()
+{
+	unsigned char lsb = m_Mem->ReadU8(m_PC++);
+	unsigned char msb = m_Mem->ReadU8(m_PC++);
+
+	unsigned short address = ((unsigned short)lsb << 8) | msb;
+	m_Registers.a = m_Mem->ReadU8(address);
+}
+
+// Add to SP a SIGNED immediate.
+void CPU::ADD_SP_imm8()
+{
+	signed char immediate = m_Mem->ReadU8(m_PC++);
+	unsigned char result = m_SP + immediate;
+	m_SP = result;
+
+	m_FlagRegister.zero = false;
+	m_FlagRegister.subtract = false;
+	m_FlagRegister.halfCarry = ((result & 0x00001000) >> 3) == 0;
+	m_FlagRegister.carry = ((result & 0x10000000) >> 7) == 0;
+}
+
+// Add to SP a SIGNED immediate and store it in HL.
+void CPU::LD_HL_SLimm8()
+{
+	signed char immediate = m_Mem->ReadU8(m_PC++);
+	unsigned char result = m_SP + immediate;
+	SetHL(result);
+
+	m_FlagRegister.zero = false;
+	m_FlagRegister.subtract = false;
+	m_FlagRegister.halfCarry = ((result & 0x00001000) >> 3) == 0;
+	m_FlagRegister.carry = ((result & 0x10000000) >> 7) == 0;
+}
+
+// Copy register pair HL into SP
+void CPU::LD_SP_HL()
+{
+	m_SP = GetHL();
+}
+
+// Disable interrupts
+void CPU::DI()
+{
+	m_IME = false;
+}
+
+// Enable interrupts after next instruction
+void CPU::EI()
+{
+	m_EnableIME = true;
 }
