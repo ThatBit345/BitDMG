@@ -154,6 +154,18 @@ private:
 	void LD_SP_HL();									// LD SP, HL
 	void DI();											// DI
 	void EI();											// EI
+
+	void RLC_r8(unsigned char reg);						// RLC r8
+	void RRC_r8(unsigned char reg);						// RRC r8
+	void RL_r8(unsigned char reg);						// RL r8
+	void RR_r8(unsigned char reg);						// RR r8
+	void SLA_r8(unsigned char reg);						// SLA r8
+	void SRA_r8(unsigned char reg);						// SRA r8
+	void SWAP_r8(unsigned char reg);					// SWAP r8
+	void SRL_r8(unsigned char reg);						// SRL r8
+	void BIT(unsigned char bit, unsigned char reg);		// BIT b3, r8
+	void RES(unsigned char bit, unsigned char reg);		// RES b3, r8
+	void SET(unsigned char bit, unsigned char reg);		// SET b3, r8
 	#pragma endregion
 
 };

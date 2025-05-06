@@ -50,8 +50,22 @@ bool CPU::Cycle()
 	{
 		opcode = m_Mem->ReadU8(m_PC++);
 
-		Log::LogError("CPU: PREFIX FUNCTION");
-		return UninplementedOpcode(opcode);
+		if (block == 0)
+		{
+			if (y == 0) RLC_r8(z);
+			if (y == 1) RRC_r8(z);
+			if (y == 2) RL_r8(z);
+			if (y == 3) RR_r8(z);
+			if (y == 4) SLA_r8(z);
+			if (y == 5) SRA_r8(z);
+			if (y == 6) SWAP_r8(z);
+			if (y == 7) SRL_r8(z);
+			else return UninplementedOpcode(opcode);
+		}
+		else if (block == 1) BIT(y, z);
+		else if (block == 2) RES(y, z);
+		else if (block == 3) SET(y, z);
+		else return UninplementedOpcode(opcode);
 	}
 	else if(block == 0)
 	{
@@ -67,7 +81,7 @@ bool CPU::Cycle()
 		{
 			if (q == 0) LD_r16_imm16(p);
 			else if (q == 1) ADD_HL_r16(p);
-			else UninplementedOpcode(opcode);
+			else return UninplementedOpcode(opcode);
 		}
 		else if(z == 2)
 		{
@@ -81,18 +95,9 @@ bool CPU::Cycle()
 			else if (q == 1) DEC_r16(p);
 			else return UninplementedOpcode(opcode);
 		}
-		else if(z == 4)
-		{
-			INC_r8(y);
-		}
-		else if(z == 5)
-		{
-			DEC_r8(y);
-		}
-		else if(z == 6)
-		{
-			LD_r8_imm8(y);
-		}
+		else if(z == 4) INC_r8(y);
+		else if(z == 5) DEC_r8(y);
+		else if(z == 6) LD_r8_imm8(y);
 		else if(z == 7)
 		{
 			if (y == 0) RLCA();
@@ -105,6 +110,7 @@ bool CPU::Cycle()
 			else if (y == 7) CCF();
 			else return UninplementedOpcode(opcode);
 		}
+		else return UninplementedOpcode(opcode);
 	}
 	else if (block == 1)
 	{
@@ -181,10 +187,7 @@ bool CPU::Cycle()
 		else if (z == 7) RST_tgt3(y);
 		else return UninplementedOpcode(opcode);
 	}
-	else
-	{
-		return UninplementedOpcode(opcode);
-	}
+	else return UninplementedOpcode(opcode);
 	
 	// Enable interrupts after the instruction (used by the EI instruction)
 	if(m_EnableIME)
@@ -1076,4 +1079,162 @@ void CPU::DI()
 void CPU::EI()
 {
 	m_EnableIME = true;
+}
+
+// Rotate register r8 to the left (circular)
+void CPU::RLC_r8(unsigned char reg)
+{
+	unsigned char value = GetR8(reg);
+
+	// Store the right-most byte and add it later to the shifted number
+	unsigned char carryByte = (value & 0b10000000) >> 7;
+	value = value << 1;
+	value |= carryByte;
+
+	SetR8(reg, value);
+
+	m_FlagRegister.reset();
+	m_FlagRegister.zero = value == 0;
+	m_FlagRegister.carry = carryByte;
+}
+
+// Rotate register r8 to the right (circular)
+void CPU::RRC_r8(unsigned char reg)
+{
+	unsigned char value = GetR8(reg);
+
+	// Store the right-most byte and add it later to the shifted number
+	unsigned char carryByte = (value & 0b00000001);
+	value = value >> 1;
+	value |= (carryByte << 7);
+
+	SetR8(reg, value);
+
+	m_FlagRegister.reset();
+	m_FlagRegister.zero = value == 0;
+	m_FlagRegister.carry = carryByte;
+}
+
+// Rotate register r8 to the left THROUGH the carry flag
+void CPU::RL_r8(unsigned char reg)
+{
+	unsigned char value = GetR8(reg);
+
+	unsigned char oldCarry = m_FlagRegister.carry;
+	unsigned char carryByte = (value & 0b10000000);
+	value = value >> 1;
+	value |= oldCarry;
+
+	SetR8(reg, value);
+
+	m_FlagRegister.reset();
+	m_FlagRegister.zero = value == 0;
+	m_FlagRegister.carry = carryByte;
+}
+
+// Rotate register r8 to the right THROUGH the carry flag
+void CPU::RR_r8(unsigned char reg)
+{
+	unsigned char value = GetR8(reg);
+
+	unsigned char oldCarry = m_FlagRegister.carry;
+	unsigned char carryByte = (value & 0b00000001);
+	value = value >> 1;
+	value |= (oldCarry << 7);
+
+	SetR8(reg, value);
+
+	m_FlagRegister.reset();
+	m_FlagRegister.zero = value == 0;
+	m_FlagRegister.carry = carryByte;
+}
+
+// Shift register r8 to the left (arithmetically)
+void CPU::SLA_r8(unsigned char reg)
+{
+	unsigned char value = GetR8(reg);
+
+	unsigned char carryByte = (value & 0b10000000);
+	value = value << 1;
+
+	SetR8(reg, value);
+
+	m_FlagRegister.reset();
+	m_FlagRegister.zero = value == 0;
+	m_FlagRegister.carry = carryByte;
+}
+
+// Shift register r8 to the right (arithmetically)
+void CPU::SRA_r8(unsigned char reg)
+{
+	unsigned char value = GetR8(reg);
+
+	bool upperByte = value & 0b10000000;
+	bool carryByte = value & 0b00000001;
+	value = value >> 1;
+	value |= upperByte << 7;
+
+	SetR8(reg, value);
+
+	m_FlagRegister.reset();
+	m_FlagRegister.zero = value == 0;
+	m_FlagRegister.carry = carryByte;
+}
+
+// Swap the upper 4 bits with the lower 4 bits of register r8
+void CPU::SWAP_r8(unsigned char reg)
+{
+	unsigned char value = GetR8(reg);
+
+	unsigned char lower = value & 0b00001111;
+	unsigned char upper = value & 0b11110000;
+
+	value = (lower << 4) | (upper >> 4);
+	SetR8(reg, value);
+}
+
+// Shift register r8 to the right (logically)
+void CPU::SRL_r8(unsigned char reg)
+{
+	unsigned char value = GetR8(reg);
+
+	bool carryByte = value & 0b00000001;
+	value = value >> 1;
+	value &= 0b01111111; // Mask out the upper bit (set to 0)
+
+	SetR8(reg, value);
+
+	m_FlagRegister.reset();
+	m_FlagRegister.zero = value == 0;
+	m_FlagRegister.carry = carryByte;
+}
+
+// Test bit b in register r8, set Z if bit is zero
+void CPU::BIT(unsigned char bit, unsigned char reg)
+{
+	unsigned char mask = 0b00000001 << bit;
+
+	bool bitSet = (GetR8(reg) & mask) >> bit;
+
+	m_FlagRegister.zero = !bitSet;
+	m_FlagRegister.subtract = false;
+	m_FlagRegister.halfCarry = true;
+}
+
+// Set bit b of register r8 to 0
+void CPU::RES(unsigned char bit, unsigned char reg)
+{
+	unsigned char bitToSet = 0b00000001 << bit;
+
+	// Invert the mask to set the bit to 0
+	SetR8(reg, GetR8(reg) & ~bitToSet);
+}
+
+// Set bit b of register r8 to 1
+void CPU::SET(unsigned char bit, unsigned char reg)
+{
+	unsigned char bitToSet = 0b00000001 << bit;
+
+	// Invert the mask to set the bit to 0
+	SetR8(reg, GetR8(reg) | bitToSet);
 }
