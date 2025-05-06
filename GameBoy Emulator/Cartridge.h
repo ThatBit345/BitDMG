@@ -19,6 +19,12 @@ struct CartridgeHardware
 
 class Cartridge
 {
+public:
+	Cartridge(const char* romPath);
+
+	inline bool IsValid() { return this->m_IsValid; }
+	unsigned char* GetRom();
+
 private:
 	std::vector<unsigned char> m_Rom;
 	std::string m_CartName;
@@ -28,10 +34,4 @@ private:
 
 	void SetHardware(Mapper mapper, bool ram, bool battery, bool timer, bool rumble, bool sensor);
 
-public:
-
-	Cartridge(const char* romPath);
-
-	inline bool IsValid() { return this->m_IsValid; }
-	unsigned char* GetRom();
 };

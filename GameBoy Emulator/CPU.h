@@ -52,21 +52,20 @@ struct FlagRegister
 
 class CPU
 {
-private:
-	Registers registers;
-	FlagRegister flagRegister;
-
-	unsigned short sp;
-	unsigned short pc;
-
-	std::shared_ptr<Memory> p_mem;
-
-	void UninplementedOpcode(int opcode);
-
-public: 
-
+public:
 	CPU(std::shared_ptr<Memory> memory);
 	bool Cycle();
+
+private:
+	Registers m_Registers;
+	FlagRegister m_FlagRegister;
+
+	unsigned short m_SP;
+	unsigned short m_PC;
+
+	std::shared_ptr<Memory> m_Mem;
+
+	void UninplementedOpcode(int opcode);
 
 	#pragma region DOUBLE REGISTERS
 	void SetAF(unsigned short value);
