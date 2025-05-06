@@ -11,7 +11,16 @@ int main(int argc, char* argv[])
     std::shared_ptr<Memory> memory = std::make_shared<Memory>();
     CPU cpu(memory);
 
-    std::filesystem::path romPath = std::filesystem::current_path() / "01-special.gb";
+    std::filesystem::path romPath;
+    if (argc == 1) romPath = std::filesystem::current_path() / "01-special.gb";
+    else romPath = argv[1];
+
+    if(romPath.empty())
+    {
+        Log::LogError("File not found!");
+        return 1;
+    }
+
     Cartridge cartridge(romPath.string().c_str());
 
     if(!cartridge.IsValid())
@@ -33,5 +42,7 @@ int main(int argc, char* argv[])
     {
         quit = !cpu.Cycle();
     }
+
+    std::getchar();
 }
 
