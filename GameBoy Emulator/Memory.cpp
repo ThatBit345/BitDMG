@@ -13,25 +13,25 @@ Memory::Memory()
 
 bool Memory::LoadCartridge(Cartridge cart)
 {
-	memcpy(this->memory.data(), cart.GetRom(), 0x7FFF);
+	memcpy(memory.data(), cart.GetRom(), 0x7FFF);
 
 	return true;
 }
 
 unsigned char Memory::ReadU8(int address)
 {
-	return this->memory[address];
+	return memory[address];
 }
 
 void Memory::WriteU8(int address, unsigned char value)
 {
-	this->memory[address] = value;
+	memory[address] = value;
 }
 
 unsigned short Memory::ReadU16(int address)
 {
-	unsigned char lsb = this->memory[address];
-	unsigned char msb = this->memory[address + 1];
+	unsigned char lsb = memory[address];
+	unsigned char msb = memory[address + 1];
 
 	return ((unsigned short)lsb << 8) | msb;
 }
@@ -41,12 +41,12 @@ void Memory::WriteU16(int address, unsigned short value)
 	unsigned char lsb = (unsigned char)value;
 	unsigned char msb = (unsigned char)(value >> 8);
 
-	this->memory[address] = lsb;
-	this->memory[address + 1] = msb;
+	memory[address] = lsb;
+	memory[address + 1] = msb;
 }
 
 void Memory::WriteU16(int address, unsigned char lsb, unsigned char msb)
 {
-	this->memory[address] = lsb;
-	this->memory[address + 1] = msb;
+	memory[address] = lsb;
+	memory[address + 1] = msb;
 }

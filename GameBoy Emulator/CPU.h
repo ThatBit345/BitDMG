@@ -65,7 +65,11 @@ private:
 
 	std::shared_ptr<Memory> m_Mem;
 
-	void UninplementedOpcode(int opcode);
+	void SetR8(unsigned char reg, unsigned char value);
+	unsigned char GetR8(unsigned char reg);
+
+	void SetR16(unsigned char reg, unsigned char value);
+	unsigned short GetR16(unsigned char reg);
 
 	#pragma region DOUBLE REGISTERS
 	void SetAF(unsigned short value);
@@ -80,6 +84,8 @@ private:
 	#pragma endregion
 
 	#pragma region OPCODES
+	bool IsValidOpcode(unsigned char opcode);
+	void UninplementedOpcode(int opcode);
 
 	void NOP();											// NOP
 	void LD_r16_imm16(unsigned char reg);				// LD r16, imm16
@@ -107,6 +113,14 @@ private:
 	void LD_r8_r8(unsigned char r1, unsigned char r2);	// LD r8, r8
 	void HALT();										// HALT
 
+	void ADD_a_r8(unsigned char reg);					// ADD A, r8
+	void ADC_a_r8(unsigned char reg);					// ADC A, r8
+	void SUB_a_r8(unsigned char reg);					// SUB A, r8
+	void SBC_a_r8(unsigned char reg);					// SBC A, r8
+	void AND_a_r8(unsigned char reg);					// AND A, r8
+	void XOR_a_r8(unsigned char reg);					// XOR A, r8
+	void OR_a_r8(unsigned char reg);					// OR A, r8
+	void CP_a_r8(unsigned char reg);					// CP A, r8
 	#pragma endregion
 
 };

@@ -179,15 +179,15 @@ Cartridge::Cartridge(const char* romPath)
 
 unsigned char* Cartridge::GetRom()
 {
-	return this->m_Rom.data();
+	return m_Rom.data();
 }
 
 void Cartridge::SetHardware(Mapper mapper, bool ram, bool battery, bool timer, bool rumble, bool sensor)
 {
-	this->m_Hardware.mapper = mapper;
-	this->m_Hardware.hasRam = ram;
-	this->m_Hardware.hasBattery = battery;
-	this->m_Hardware.hasTimer = timer;
-	this->m_Hardware.hasRumble = rumble;
-	this->m_Hardware.hasSensor = sensor;
+	m_Hardware.mapper = mapper;
+	m_Hardware.hasRam = ram;
+	m_Hardware.hasBattery = battery;
+	m_Hardware.hasTimer = timer;
+	m_Hardware.hasRumble = rumble;
+	m_Hardware.hasSensor = sensor;
 }

@@ -15,8 +15,14 @@ CPU::CPU(std::shared_ptr<Memory> memory)
 
 bool CPU::Cycle()
 {
-	unsigned char opcode = this->m_Mem->ReadU8(this->m_PC++);
+	unsigned char opcode = m_Mem->ReadU8(m_PC++);
 	
+	if(!IsValidOpcode(opcode))
+	{
+		m_PC--;
+		return;
+	}
+
 	// Opcode decoding, method described by Scott Mansell in the website below
 	// https://archive.gbdev.io/salvage/decoding_gbz80_opcodes/Decoding%20Gamboy%20Z80%20Opcodes.html
 	// and using the reference table described in the pandocs
@@ -29,7 +35,14 @@ bool CPU::Cycle()
 	unsigned char p = (opcode & 0b00110000) >> 4;
 	unsigned char q = (opcode & 0b00001000) >> 3;
 
-	if(block == 0)
+	if(opcode == 0xCB)
+	{
+		opcode = m_Mem->ReadU8(m_PC++);
+
+		Log::LogError("CPU: PREFIX FUNCTION");
+		UninplementedOpcode(opcode);
+	}
+	else if(block == 0)
 	{
 		if(z == 0)
 		{
@@ -87,6 +100,22 @@ bool CPU::Cycle()
 		if (opcode == 0x76) HALT();
 		else LD_r8_r8(y, z);
 	}
+	else if (block == 2)
+	{
+		if (y == 0) ADD_a_r8(z);
+		else if (y == 1) ADC_a_r8(z);
+		else if (y == 2) SUB_a_r8(z);
+		else if (y == 3) SBC_a_r8(z);
+		else if (y == 4) AND_a_r8(z);
+		else if (y == 5) XOR_a_r8(z);
+		else if (y == 6) OR_a_r8(z);
+		else if (y == 7) CP_a_r8(z);
+		else UninplementedOpcode(opcode);
+	}
+	else if (block == 3)
+	{
+		
+	}
 	else
 	{
 		UninplementedOpcode(opcode);
@@ -94,6 +123,115 @@ bool CPU::Cycle()
 	
 	return false;
 }
+
+void CPU::SetR8(unsigned char reg, unsigned char value)
+{
+	switch (reg)
+	{
+	case 0:
+		m_Registers.b = value;
+		break;
+
+	case 1:
+		m_Registers.c = value;
+		break;
+
+	case 2:
+		m_Registers.d = value;
+		break;
+
+	case 3:
+		m_Registers.e = value;
+		break;
+
+	case 4:
+		m_Registers.h = value;
+		break;
+
+	case 5:
+		m_Registers.l = value;
+		break;
+
+	case 6:
+		m_Mem->WriteU8(GetHL(), value);
+		break;
+
+	case 7:
+		m_Registers.a = value;
+		break;
+	}
+}
+
+unsigned char CPU::GetR8(unsigned char reg)
+{
+	switch (reg)
+	{
+	case 0:
+		return m_Registers.b;
+
+	case 1:
+		return m_Registers.c;
+
+	case 2:
+		return m_Registers.d;
+
+	case 3:
+		return m_Registers.e;
+
+	case 4:
+		return m_Registers.h;
+
+	case 5:
+		return m_Registers.l;
+
+	case 6:
+		return m_Mem->ReadU8(GetHL());
+
+	case 7:
+		return m_Registers.a;
+	}
+}
+
+void CPU::SetR16(unsigned char reg, unsigned char value)
+{
+	switch (reg)
+	{
+	case 0:
+		SetBC(value);
+		break;
+
+	case 1:
+		SetDE(value);
+		break;
+
+	case 2:
+		SetHL(value);
+		break;
+
+	case 3:
+		m_SP = value;
+		break;
+	}
+}
+
+unsigned short CPU::GetR16(unsigned char reg)
+{
+	switch (reg)
+	{
+	case 0:
+		return GetBC();
+
+	case 1:
+		return GetDE();
+
+	case 2:
+		return GetHL();
+
+	case 3:
+		return m_SP;
+	}
+}
+
 
 #pragma region DOUBLE REGISTERS
 void CPU::SetAF(unsigned short value)
@@ -141,6 +279,21 @@ unsigned short CPU::GetHL()
 }
 #pragma endregion
 
+bool CPU::IsValidOpcode(unsigned char opcode)
+{
+	return opcode == 0xD3 ||
+		opcode == 0xDB ||
+		opcode == 0xDD ||
+		opcode == 0xE3 ||
+		opcode == 0xE4 ||
+		opcode == 0xEB ||
+		opcode == 0xEC ||
+		opcode == 0xED ||
+		opcode == 0xF4 ||
+		opcode == 0xFC ||
+		opcode == 0xFD;
+}
+
 void CPU::UninplementedOpcode(int opcode)
 {
 	// Print error to console
@@ -160,26 +313,9 @@ void CPU::NOP()
 // Copy the immediate value into register r16
 void CPU::LD_r16_imm16(unsigned char reg)
 {
-	unsigned short value = this->m_Mem->ReadU16(this->m_PC++);
+	unsigned short value = m_Mem->ReadU16(m_PC++);
 
-	switch (reg)
-	{
-	case 0:
-		this->SetBC(value);
-		break;
-
-	case 1:
-		this->SetDE(value);
-		break;
-
-	case 2:
-		this->SetHL(value);
-		break;
-
-	case 3:
-		this->m_SP = value;
-		break;
-	}
+	SetR16(reg, value);
 }
 
 // Copy the value in register A into the byte pointed to by r16 (r16mem)
@@ -190,25 +326,25 @@ void CPU::LD_r16_a(unsigned char reg)
 	switch (reg)
 	{
 	case 0:
-		address = this->GetBC();
+		address = GetBC();
 		break;
 
 	case 1:
-		address = this->GetDE();
+		address = GetDE();
 		break;
 
 	case 2:
-		address = this->GetHL();
-		this->SetHL(this->GetHL() + 1);
+		address = GetHL();
+		SetHL(GetHL() + 1);
 		break;
 
 	case 3:
-		address = this->GetHL();
-		this->SetHL(this->GetHL() - 1);
+		address = GetHL();
+		SetHL(GetHL() - 1);
 		break;
 	}
 
-	this->m_Mem->WriteU8(address, this->m_Registers.a);
+	m_Mem->WriteU8(address, m_Registers.a);
 }
 
 // Copy the byte pointed to by register r16 into A (r16mem)
@@ -219,315 +355,143 @@ void CPU::LD_a_r16(unsigned char reg)
 	switch (reg)
 	{
 	case 0:
-		address = this->GetBC();
+		address = GetBC();
 		break;
 
 	case 1:
-		address = this->GetDE();
+		address = GetDE();
 		break;
 
 	case 2:
-		address = this->GetHL();
-		this->SetHL(this->GetHL() + 1);
+		address = GetHL();
+		SetHL(GetHL() + 1);
 		break;
 
 	case 3:
-		address = this->GetHL();
-		this->SetHL(this->GetHL() - 1);
+		address = GetHL();
+		SetHL(GetHL() - 1);
 		break;
 	}
 
-	this->m_Registers.a = this->m_Mem->ReadU8(address);
+	m_Registers.a = m_Mem->ReadU8(address);
 }
 
 // Copy the immediate value into SP
 void CPU::LD_imm16_SP()
 {
-	unsigned char lsb = this->m_Mem->ReadU8(this->m_PC++);
-	unsigned char msb = this->m_Mem->ReadU8(this->m_PC++);
+	unsigned char lsb = m_Mem->ReadU8(m_PC++);
+	unsigned char msb = m_Mem->ReadU8(m_PC++);
 
 	unsigned short address = ((unsigned short)lsb << 8) | msb;
-	this->m_Mem->WriteU16(address, this->m_SP);
+	m_Mem->WriteU16(address, m_SP);
 }
 
 // Increment value at register r16 by 1
 void CPU::INC_r16(unsigned char reg)
 {
-	switch (reg)
-	{
-	case 0:
-		this->SetBC(this->GetBC() + 1);
-		break;
-
-	case 1:
-		this->SetDE(this->GetDE() + 1);
-		break;
-
-	case 2:
-		this->SetHL(this->GetHL() + 1);
-		break;
-
-	case 3:
-		this->m_SP += 1;
-		break;
-	}
+	SetR16(reg, GetR16(reg) + 1);
 }
 
 // Decrement value at register r16 by 1
 void CPU::DEC_r16(unsigned char reg)
 {
-	switch (reg)
-	{
-	case 0:
-		this->SetBC(this->GetBC() - 1);
-		break;
-
-	case 1:
-		this->SetDE(this->GetDE() - 1);
-		break;
-
-	case 2:
-		this->SetHL(this->GetHL() - 1);
-		break;
-
-	case 3:
-		this->m_SP -= 1;
-		break;
-	}
+	SetR16(reg, GetR16(reg) - 1);
 }
 
 // Add value in HL to value at register r16
 void CPU::ADD_HL_r16(unsigned char reg)
 {
-	unsigned short val = 0x0000;
+	unsigned short val = GetR16(reg);
 
-	switch (reg)
-	{
-	case 0:
-		val = this->GetBC();
-		break;
-
-	case 1:
-		val = this->GetDE();
-		break;
-
-	case 2:
-		val = this->GetHL();
-		break;
-
-	case 3:
-		val = this->m_SP;
-		break;
-	}
-
-	unsigned short result = this->GetHL() + val;
-	this->SetHL(result);
+	unsigned short result = GetHL() + val;
+	SetHL(result);
 
 	// Set flags
-	this->m_FlagRegister.subtract = false;
-	this->m_FlagRegister.halfCarry = ((result & 0b0000100000000000) >> 11 == 1);
-	this->m_FlagRegister.carry = ((result & 0b1000000000000000) >> 15 == 1);
+	m_FlagRegister.subtract = false;
+	m_FlagRegister.halfCarry = ((result & 0b0000100000000000) >> 11 == 1);
+	m_FlagRegister.carry = ((result & 0b1000000000000000) >> 15 == 1);
 }
 
 // Increment value at register r8 by 1
 void CPU::INC_r8(unsigned char reg)
 {
-	unsigned char result = 0x00;
+	unsigned char result = GetR8(reg) + 1;
+	SetR8(reg, result);
 
-	switch(reg)
-	{
-	case 0:
-		this->m_Registers.b += 1;
-		result = this->m_Registers.b;
-		break;
-
-	case 1:
-		this->m_Registers.c += 1;
-		result = this->m_Registers.c;
-		break;
-
-	case 2:
-		this->m_Registers.d += 1;
-		result = this->m_Registers.d;
-		break;
-
-	case 3:
-		this->m_Registers.e += 1;
-		result = this->m_Registers.e;
-		break;
-
-	case 4:
-		this->m_Registers.h += 1;
-		result = this->m_Registers.h;
-		break;
-
-	case 5:
-		this->m_Registers.l += 1;
-		result = this->m_Registers.l;
-		break;
-
-	case 6:
-		result = this->m_Mem->ReadU8(this->GetHL());
-		result++;
-		this->m_Mem->WriteU8(this->GetHL(), result);
-		break;
-
-	case 7:
-		this->m_Registers.a += 1;
-		result = this->m_Registers.a;
-		break;
-	}
-
-	this->m_FlagRegister.zero = (result == 0);
-	this->m_FlagRegister.subtract = false;
-	this->m_FlagRegister.halfCarry = ((result & 0b00001000) >> 3 == 1);
+	m_FlagRegister.zero = (result == 0);
+	m_FlagRegister.subtract = false;
+	m_FlagRegister.halfCarry = ((result & 0b00001000) >> 3 == 1);
 }
 
 // Decrement value at register r8 by 1
 void CPU::DEC_r8(unsigned char reg)
 {
-	unsigned char result = 0x00;
+	unsigned char result = GetR8(reg) - 1;
+	SetR8(reg, result);
 
-	switch (reg)
-	{
-	case 0:
-		this->m_Registers.b -= 1;
-		result = this->m_Registers.b;
-		break;
-
-	case 1:
-		this->m_Registers.c -= 1;
-		result = this->m_Registers.c;
-		break;
-
-	case 2:
-		this->m_Registers.d -= 1;
-		result = this->m_Registers.d;
-		break;
-
-	case 3:
-		this->m_Registers.e -= 1;
-		result = this->m_Registers.e;
-		break;
-
-	case 4:
-		this->m_Registers.h -= 1;
-		result = this->m_Registers.h;
-		break;
-
-	case 5:
-		this->m_Registers.l -= 1;
-		result = this->m_Registers.l;
-		break;
-
-	case 6:
-		result = this->m_Mem->ReadU8(this->GetHL());
-		result--;
-		this->m_Mem->WriteU8(this->GetHL(), result);
-		break;
-
-	case 7:
-		this->m_Registers.a -= 1;
-		result = this->m_Registers.a;
-		break;
-	}
-
-	this->m_FlagRegister.zero = (result == 0);
-	this->m_FlagRegister.subtract = true;
-	this->m_FlagRegister.halfCarry = ((result & 0b00001000) >> 3 == 1);
+	m_FlagRegister.zero = (result == 0);
+	m_FlagRegister.subtract = true;
+	m_FlagRegister.halfCarry = ((result & 0b00001000) >> 3 == 1);
 }
 
 // Copy the immediate value into register r8
 void CPU::LD_r8_imm8(unsigned char reg)
 {
-	unsigned char value = this->m_Mem->ReadU8(this->m_PC++);
+	unsigned char value = m_Mem->ReadU8(m_PC++);
 
-	switch (reg)
-	{
-	case 0:
-		this->m_Registers.b = value;
-		break;
-
-	case 1:
-		this->m_Registers.c = value;
-		break;
-
-	case 2:
-		this->m_Registers.d = value;
-		break;
-
-	case 3:
-		this->m_Registers.e = value;
-		break;
-
-	case 4:
-		this->m_Registers.h = value;
-		break;
-
-	case 5:
-		this->m_Registers.l = value;
-		break;
-
-	case 6:
-		this->m_Mem->WriteU8(this->GetHL(), value);
-		break;
-
-	case 7:
-		this->m_Registers.a = value;
-		break;
-	}
+	SetR8(reg, value);
 }
 
 // Rotate A to the left (circular)
 void CPU::RLCA()
 {
 	// Store the right-most byte and add it later to the shifted number
-	unsigned char carryByte = (this->m_Registers.a & 0b10000000) >> 7;
-	this->m_Registers.a = this->m_Registers.a << 1;
-	this->m_Registers.a |= carryByte;
+	unsigned char carryByte = (m_Registers.a & 0b10000000) >> 7;
+	m_Registers.a = m_Registers.a << 1;
+	m_Registers.a |= carryByte;
 
-	this->m_FlagRegister.reset();
-	this->m_FlagRegister.zero = this->m_Registers.a == 0;
-	this->m_FlagRegister.carry = carryByte;
+	m_FlagRegister.reset();
+	m_FlagRegister.zero = m_Registers.a == 0;
+	m_FlagRegister.carry = carryByte;
 }
 
 // Rotate A to the right (circular)
 void CPU::RRCA()
 {
 	// Store the left-most byte and add it later to the shifted number
-	unsigned char carryByte = (this->m_Registers.a & 0b00000001);
-	this->m_Registers.a = this->m_Registers.a >> 1;
-	this->m_Registers.a |= (carryByte << 7);
+	unsigned char carryByte = (m_Registers.a & 0b00000001);
+	m_Registers.a = m_Registers.a >> 1;
+	m_Registers.a |= (carryByte << 7);
 
-	this->m_FlagRegister.reset();
-	this->m_FlagRegister.zero = this->m_Registers.a == 0;
-	this->m_FlagRegister.carry = carryByte;
+	m_FlagRegister.reset();
+	m_FlagRegister.zero = m_Registers.a == 0;
+	m_FlagRegister.carry = carryByte;
 }
 
 // Rotate A to the left THROUGH the carry flag
 void CPU::RLA()
 {
-	unsigned char oldCarry = this->m_FlagRegister.carry;
-	unsigned char carryByte = (this->m_Registers.a & 0b10000000);
-	this->m_Registers.a = this->m_Registers.a >> 1;
-	this->m_Registers.a |= oldCarry;
+	unsigned char oldCarry = m_FlagRegister.carry;
+	unsigned char carryByte = (m_Registers.a & 0b10000000);
+	m_Registers.a = m_Registers.a >> 1;
+	m_Registers.a |= oldCarry;
 
-	this->m_FlagRegister.reset();
-	this->m_FlagRegister.zero = this->m_Registers.a == 0;
-	this->m_FlagRegister.carry = carryByte;
+	m_FlagRegister.reset();
+	m_FlagRegister.zero = m_Registers.a == 0;
+	m_FlagRegister.carry = carryByte;
 }
 
 // Rotate A to the right THROUGH the carry flag
 void CPU::RRA()
 {
-	unsigned char oldCarry = this->m_FlagRegister.carry;
-	unsigned char carryByte = (this->m_Registers.a & 0b00000001);
-	this->m_Registers.a = this->m_Registers.a >> 1;
-	this->m_Registers.a |= (oldCarry << 7);
+	unsigned char oldCarry = m_FlagRegister.carry;
+	unsigned char carryByte = (m_Registers.a & 0b00000001);
+	m_Registers.a = m_Registers.a >> 1;
+	m_Registers.a |= (oldCarry << 7);
 
-	this->m_FlagRegister.reset();
-	this->m_FlagRegister.zero = this->m_Registers.a == 0;
-	this->m_FlagRegister.carry = carryByte;
+	m_FlagRegister.reset();
+	m_FlagRegister.zero = m_Registers.a == 0;
+	m_FlagRegister.carry = carryByte;
 }
 
 // Decimal adjust A to binary coded decimal
@@ -535,76 +499,76 @@ void CPU::DAA()
 {
 	unsigned char adjustment = 0x00;
 
-	if(this->m_FlagRegister.subtract)
+	if(m_FlagRegister.subtract)
 	{
-		if (this->m_FlagRegister.halfCarry) adjustment += 0x6;
-		if (this->m_FlagRegister.carry) adjustment += 0x60;
-		this->m_Registers.a -= adjustment;
+		if (m_FlagRegister.halfCarry) adjustment += 0x6;
+		if (m_FlagRegister.carry) adjustment += 0x60;
+		m_Registers.a -= adjustment;
 	}
 	else
 	{
-		if (this->m_FlagRegister.halfCarry || (this->m_Registers.a & 0xF) > 0x9) adjustment += 0x6;
-		if (this->m_FlagRegister.carry || this->m_Registers.a > 0x99) adjustment += 0x60;
-		this->m_Registers.a += adjustment;
+		if (m_FlagRegister.halfCarry || (m_Registers.a & 0xF) > 0x9) adjustment += 0x6;
+		if (m_FlagRegister.carry || m_Registers.a > 0x99) adjustment += 0x60;
+		m_Registers.a += adjustment;
 	}
 
-	this->m_FlagRegister.reset();
-	this->m_FlagRegister.zero = (this->m_Registers.a == 0);
-	this->m_FlagRegister.carry = ((this->m_Registers.a & 0b10000000) >> 7 == 1);
+	m_FlagRegister.reset();
+	m_FlagRegister.zero = (m_Registers.a == 0);
+	m_FlagRegister.carry = ((m_Registers.a & 0b10000000) >> 7 == 1);
 }
 
 // Complement A (bitwise NOT)
 void CPU::CPL()
 {
-	this->m_Registers.a = ~this->m_Registers.a;
+	m_Registers.a = ~m_Registers.a;
 
-	this->m_FlagRegister.subtract = true;
-	this->m_FlagRegister.halfCarry = true;
+	m_FlagRegister.subtract = true;
+	m_FlagRegister.halfCarry = true;
 }
 
 // Set the carry flag
 void CPU::SCF()
 {
-	this->m_FlagRegister.subtract = false;
-	this->m_FlagRegister.halfCarry = false;
-	this->m_FlagRegister.carry = true;
+	m_FlagRegister.subtract = false;
+	m_FlagRegister.halfCarry = false;
+	m_FlagRegister.carry = true;
 }
 
 // Complement the carry flag
 void CPU::CCF()
 {
-	this->m_FlagRegister.subtract = false;
-	this->m_FlagRegister.halfCarry = false;
-	this->m_FlagRegister.carry = !this->m_FlagRegister.carry;
+	m_FlagRegister.subtract = false;
+	m_FlagRegister.halfCarry = false;
+	m_FlagRegister.carry = !m_FlagRegister.carry;
 }
 
 // Jump offset
-void CPU::JR_s8()
+void CPU::JR_s8() 
 {
-	unsigned char offset = this->m_Mem->ReadU8(this->m_PC++);
-	this->m_PC += offset;
+	unsigned char offset = m_Mem->ReadU8(m_PC++);
+	m_PC += offset;
 }
 
 // Jump conditional
 void CPU::JR_C(unsigned char cond)
 {
-	unsigned char offset = this->m_Mem->ReadU8(this->m_PC++);
+	unsigned char offset = m_Mem->ReadU8(m_PC++);
 
-	if(cond == 0 && !this->m_FlagRegister.zero) // Not zero
+	if(cond == 0 && !m_FlagRegister.zero) // Not zero
 	{
-		this->m_PC += offset;
+		m_PC += offset;
 	}
-	else if (cond == 1 && this->m_FlagRegister.zero) // Zero
+	else if (cond == 1 && m_FlagRegister.zero) // Zero
 	{
-		this->m_PC += offset;
+		m_PC += offset;
 	}
-	else if (cond == 2 && this->m_FlagRegister.carry) // No carry
+	else if (cond == 2 && m_FlagRegister.carry) // No carry
 	{
-		this->m_PC += offset;
+		m_PC += offset;
 	}
-	else if (cond == 3 && this->m_FlagRegister.carry) // Carry
+	else if (cond == 3 && m_FlagRegister.carry) // Carry
 	{
-		this->m_PC += offset;
+		m_PC += offset;
 	}
 }
 
@@ -614,83 +578,102 @@ void CPU::STOP()
 	UninplementedOpcode(0x10);
 }
 
+// Copy value from first register into second.
 void CPU::LD_r8_r8(unsigned char r1, unsigned char r2)
 {
-	unsigned char value = 0x00;
-
-	switch (r1)
-	{
-	case 0:
-		value = this->m_Registers.b;
-		break;
-
-	case 1:
-		value = this->m_Registers.c;
-		break;
-
-	case 2:
-		value = this->m_Registers.d;
-		break;
-
-	case 3:
-		value = this->m_Registers.e;
-		break;
-
-	case 4:
-		value = this->m_Registers.h;
-		break;
-
-	case 5:
-		value = this->m_Registers.l;
-		break;
-
-	case 6:
-		value = this->m_Mem->ReadU8(this->GetHL());
-		break;
-
-	case 7:
-		value = this->m_Registers.a;
-		break;
-	}
-
-	switch (r2)
-	{
-	case 0:
-		this->m_Registers.b = value;
-		break;
-
-	case 1:
-		this->m_Registers.c = value;
-		break;
-
-	case 2:
-		this->m_Registers.d = value;
-		break;
-
-	case 3:
-		this->m_Registers.e = value;
-		break;
-
-	case 4:
-		this->m_Registers.h = value;
-		break;
-
-	case 5:
-		this->m_Registers.l = value;
-		break;
-
-	case 6:
-		this->m_Mem->WriteU8(this->GetHL(), value);
-		break;
-
-	case 7:
-		this->m_Registers.a = value;
-		break;
-	}
+	SetR8(r2, GetR8(r1));
 }
 
-// Enter CPU low-power mode
+// Enter CPU low-power mode.
 void CPU::HALT()
 {
 	UninplementedOpcode(0x76);
+}
+
+// Add the value at register r8 and A. Stored in A.
+void CPU::ADD_a_r8(unsigned char reg)
+{
+	unsigned char result = m_Registers.a + GetR8(reg);
+
+	m_FlagRegister.zero = result == 0;
+	m_FlagRegister.subtract = false;
+	m_FlagRegister.halfCarry = ((result & 0x00001000) >> 3) == 0;
+	m_FlagRegister.carry = ((result & 0x10000000) >> 7) == 0;
+}
+
+// Add the value at register r8, A and the carry flag. Stored in A.
+void CPU::ADC_a_r8(unsigned char reg)
+{
+	unsigned char result = m_Registers.a + GetR8(reg) + m_FlagRegister.carry;
+
+	m_FlagRegister.zero = result == 0;
+	m_FlagRegister.subtract = false;
+	m_FlagRegister.halfCarry = ((result & 0x00001000) >> 3) == 0;
+	m_FlagRegister.carry = ((result & 0x10000000) >> 7) == 0;
+}
+
+// Subtract the value at register r8 from A. Stored in A.
+void CPU::SUB_a_r8(unsigned char reg)
+{
+	unsigned char result = m_Registers.a - GetR8(reg);
+
+	m_FlagRegister.zero = result == 0;
+	m_FlagRegister.subtract = true;
+	m_FlagRegister.halfCarry = ((result & 0x00001000) >> 3) == 0;
+	m_FlagRegister.carry = ((result & 0x10000000) >> 7) == 0;
+}
+
+// Subtract the value at register r8, A and the carry flag. Stored in A.
+void CPU::SBC_a_r8(unsigned char reg)
+{
+	unsigned char result = m_Registers.a - GetR8(reg) - m_FlagRegister.carry;
+
+	m_FlagRegister.zero = result == 0;
+	m_FlagRegister.subtract = true;
+	m_FlagRegister.halfCarry = ((result & 0x00001000) >> 3) == 0;
+	m_FlagRegister.carry = ((result & 0x10000000) >> 7) == 0;
+}
+
+// Bitwise AND between A and register r8.
+void CPU::AND_a_r8(unsigned char reg)
+{
+	m_Registers.a = m_Registers.a & GetR8(reg);
+
+	m_FlagRegister.zero = m_Registers.a == 0;
+	m_FlagRegister.subtract = false;
+	m_FlagRegister.halfCarry = true;
+	m_FlagRegister.carry = false;
+}
+
+// Bitwise XOR between A and register r8.
+void CPU::XOR_a_r8(unsigned char reg)
+{
+	m_Registers.a = m_Registers.a ^ GetR8(reg);
+
+	m_FlagRegister.zero = m_Registers.a == 0;
+	m_FlagRegister.subtract = false;
+	m_FlagRegister.halfCarry = false;
+	m_FlagRegister.carry = false;
+}
+
+// Bitwise OR between A and register r8.
+void CPU::OR_a_r8(unsigned char reg)
+{
+	m_Registers.a = m_Registers.a | GetR8(reg);
+
+	m_FlagRegister.zero = m_Registers.a == 0;
+	m_FlagRegister.subtract = false;
+	m_FlagRegister.halfCarry = false;
+	m_FlagRegister.carry = false;
+}
+
+// Compare the values in A and register r8.
+void CPU::CP_a_r8(unsigned char reg)
+{
+	unsigned char result = m_Registers.a - GetR8(reg);
+
+	m_FlagRegister.zero = result == 0;
+	m_FlagRegister.subtract = true;
+	m_FlagRegister.halfCarry = ((result & 0x00001000) >> 3) == 0;
+	m_FlagRegister.carry = ((result & 0x10000000) >> 7) == 0;
 }
