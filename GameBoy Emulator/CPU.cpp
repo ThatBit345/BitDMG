@@ -54,16 +54,21 @@ bool CPU::Cycle()
 	{
 		opcode = m_Mem->ReadU8(m_PC++);
 
+		// Recalculate sections
+		block = opcode >> 6;
+		y = (opcode & 0b00111000) >> 3;
+		z = opcode & 0b00000111;
+
 		if (block == 0)
 		{
 			if (y == 0) RLC_r8(z);
-			if (y == 1) RRC_r8(z);
-			if (y == 2) RL_r8(z);
-			if (y == 3) RR_r8(z);
-			if (y == 4) SLA_r8(z);
-			if (y == 5) SRA_r8(z);
-			if (y == 6) SWAP_r8(z);
-			if (y == 7) SRL_r8(z);
+			else if (y == 1) RRC_r8(z);
+			else if (y == 2) RL_r8(z);
+			else if (y == 3) RR_r8(z);
+			else if (y == 4) SLA_r8(z);
+			else if (y == 5) SRA_r8(z);
+			else if (y == 6) SWAP_r8(z);
+			else if (y == 7) SRL_r8(z);
 			else return UninplementedOpcode(opcode);
 		}
 		else if (block == 1) BIT(y, z);
@@ -512,8 +517,10 @@ void CPU::ADD_HL_r16(unsigned char reg)
 
 	// Set flags
 	m_FlagRegister.subtract = false;
-	m_FlagRegister.halfCarry = ((result & 0b0000100000000000) >> 11 == 1);
-	m_FlagRegister.carry = ((result & 0b1000000000000000) >> 15 == 1);
+	m_FlagRegister.halfCarry = ((((result - val) & 0xFFF) + (val & 0xFFF)) & 0x1000) == 0x1000;
+	//m_FlagRegister.halfCarry = ((result & 0b0000100000000000) >> 11 == 1);
+	m_FlagRegister.carry = ((((result - val) & 0xFFF) + (val & 0xFFF)) & 0x1000) == 0x10000;
+	//m_FlagRegister.carry = ((result & 0b1000000000000000) >> 15 == 1);
 }
 
 // Increment value at register r8 by 1
@@ -666,7 +673,7 @@ void CPU::JR_C(unsigned char cond)
 	{
 		m_PC += offset;
 	}
-	else if (cond == 2 && m_FlagRegister.carry) // No carry
+	else if (cond == 2 && !m_FlagRegister.carry) // No carry
 	{
 		m_PC += offset;
 	}
@@ -894,23 +901,31 @@ void CPU::CP_a_imm8()
 // Return conditional.
 void CPU::RET_C(unsigned char cond)
 {
-	unsigned short returnAddress = m_Mem->ReadU16(m_SP);
+	unsigned short returnAddress = m_Mem->ReadU16(++m_SP);
 
 	if (cond == 0 && !m_FlagRegister.zero) // Not zero
 	{
 		m_PC = returnAddress;
+		m_SP++;
 	}
 	else if (cond == 1 && m_FlagRegister.zero) // Zero
 	{
 		m_PC = returnAddress;
+		m_SP++;
 	}
-	else if (cond == 2 && m_FlagRegister.carry) // No carry
+	else if (cond == 2 && !m_FlagRegister.carry) // No carry
 	{
 		m_PC = returnAddress;
+		m_SP++;
 	}
 	else if (cond == 3 && m_FlagRegister.carry) // Carry
 	{
 		m_PC = returnAddress;
+		m_SP++;
+	}
+	else
+	{
+		m_SP--;
 	}
 }
 
