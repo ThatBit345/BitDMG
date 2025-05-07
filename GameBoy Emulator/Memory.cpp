@@ -6,7 +6,7 @@
 
 #include "Log.h"
 
-Memory::Memory(const Cartridge& cart) : m_Cartridge(cart)
+Memory::Memory(std::shared_ptr<Cartridge> cart) : m_Cartridge(cart)
 {
 	m_Memory.fill(0);
 
@@ -60,7 +60,7 @@ unsigned char Memory::ReadU8(int address)
 {
 	if(address <= 0x7FFF)
 	{
-		return m_Cartridge.ReadU8(address);
+		return m_Cartridge->ReadU8(address);
 	}
 	return m_Memory[address];
 }
@@ -68,7 +68,7 @@ unsigned char Memory::ReadU8(int address)
 void Memory::WriteU8(int address, unsigned char value)
 {
 	// If writting in rom check for mapper registers
-	if (address <= 0x7FFF) m_Cartridge.CheckROMWrite(address, value);
+	if (address <= 0x7FFF) m_Cartridge->CheckROMWrite(address, value);
 	else m_Memory[address] = value;
 }
 
@@ -76,7 +76,7 @@ unsigned short Memory::ReadU16(int address)
 {
 	if (address <= 0x7FFF)
 	{
-		return m_Cartridge.ReadU16(address);
+		return m_Cartridge->ReadU16(address);
 	}
 
 	unsigned char lsb = m_Memory[address];

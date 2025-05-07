@@ -25,9 +25,9 @@ int main(int argc, char* argv[])
         return 1;
     }
 
-    Cartridge cartridge(romPath.string().c_str());
+    std::shared_ptr<Cartridge> cartridge = std::make_shared<Cartridge>(romPath.string().c_str());
 
-    if (!cartridge.IsValid())
+    if (!cartridge->IsValid())
     {
         Log::LogError("Error loading ROM file!");
         return 1;

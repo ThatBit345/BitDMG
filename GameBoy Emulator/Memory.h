@@ -1,12 +1,13 @@
 #pragma once
 #include <array>
+#include <memory>
 
 #include "Cartridge.h"
 
 class Memory
 {
 public:
-	Memory(const Cartridge& cart);
+	Memory(std::shared_ptr<Cartridge> cart);
 
 	unsigned char ReadU8(int address);
 	void WriteU8(int address, unsigned char value);
@@ -19,6 +20,6 @@ public:
 private:
 	std::array<unsigned char, 0x10000> m_Memory;
 
-	Cartridge m_Cartridge;
+	std::shared_ptr<Cartridge> m_Cartridge;
 };
 

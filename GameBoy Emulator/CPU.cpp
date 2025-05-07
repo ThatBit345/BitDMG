@@ -269,6 +269,8 @@ unsigned char CPU::GetR8(unsigned char reg)
 	case 7:
 		return m_Registers.a;
 	}
+
+	return -1;
 }
 
 void CPU::SetR16(unsigned char reg, unsigned short value)
@@ -309,6 +311,8 @@ unsigned short CPU::GetR16(unsigned char reg)
 	case 3:
 		return m_SP;
 	}
+
+	return -1;
 }
 
 void CPU::Log()
