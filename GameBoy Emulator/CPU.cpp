@@ -453,6 +453,8 @@ void CPU::LD_r16_a(unsigned char reg)
 		break;
 	}
 
+	if (address == 0xFF01) Log::LogInfo((char*)&m_Registers.a);
+
 	m_Mem->WriteU8(address, m_Registers.a);
 }
 
@@ -492,6 +494,9 @@ void CPU::LD_imm16_SP()
 	unsigned char msb = m_Mem->ReadU8(m_PC++);
 
 	unsigned short address = ((unsigned short)lsb << 8) | msb;
+
+	if (address == 0xFF01) Log::LogInfo((char*)&m_Registers.a);
+
 	m_Mem->WriteU16(address, m_SP);
 }
 
@@ -601,31 +606,59 @@ void CPU::RRA()
 	m_Registers.a |= (oldCarry << 7);
 
 	m_FlagRegister.reset();
-	m_FlagRegister.zero = m_Registers.a == 0;
+	//m_FlagRegister.zero = m_Registers.a == 0;
 	m_FlagRegister.carry = carryByte;
 }
 
 // Decimal adjust A to binary coded decimal
 void CPU::DAA()
 {
-	unsigned char adjustment = 0x00;
+	//unsigned char adjustment = 0x00;
+	//int result;
+	//
+	//if(m_FlagRegister.subtract)
+	//{
+	//	if (m_FlagRegister.halfCarry) adjustment += 0x6;
+	//	if (m_FlagRegister.carry) adjustment += 0x60;
+	//	result = m_Registers.a;
+	//	result -= adjustment;
+	//	m_Registers.a = result & 0xFF;
+	//}
+	//else
+	//{
+	//	if (m_FlagRegister.halfCarry || (m_Registers.a & 0xF) > 0x9) adjustment += 0x6;
+	//	if (m_FlagRegister.carry || m_Registers.a > 0x99) adjustment += 0x60;
+	//	result = m_Registers.a;
+	//	result += adjustment;
+	//	m_Registers.a = result & 0xFF;
+	//}
+	//
+	//m_FlagRegister.zero = (m_Registers.a == 0);
+	//m_FlagRegister.halfCarry = false;
+	//m_FlagRegister.carry = (result & 0x100) == 0x100;
 
-	if(m_FlagRegister.subtract)
+	// Implementation from https://blog.ollien.com/posts/gb-daa/
+	unsigned char a = m_Registers.a;
+	unsigned char offset = 0x00;
+
+	if((m_FlagRegister.subtract == 0 && (a & 0xF) > 0x09) || m_FlagRegister.halfCarry)
 	{
-		if (m_FlagRegister.halfCarry) adjustment += 0x6;
-		if (m_FlagRegister.carry) adjustment += 0x60;
-		m_Registers.a -= adjustment;
-	}
-	else
-	{
-		if (m_FlagRegister.halfCarry || (m_Registers.a & 0xF) > 0x9) adjustment += 0x6;
-		if (m_FlagRegister.carry || m_Registers.a > 0x99) adjustment += 0x60;
-		m_Registers.a += adjustment;
+		offset |= 0x06;
 	}
 
-	m_FlagRegister.reset();
-	m_FlagRegister.zero = (m_Registers.a == 0);
-	m_FlagRegister.carry = ((m_Registers.a & 0b10000000) >> 7 == 1);
+	if((m_FlagRegister.subtract == 0 && a > 0x99) || m_FlagRegister.carry)
+	{
+		offset |= 0x60;
+		m_FlagRegister.carry = true;
+	}
+
+	if (m_FlagRegister.subtract) a -= offset;
+	else a += offset;
+
+	m_Registers.a = a;
+
+	m_FlagRegister.zero = m_Registers.a == 0;
+	m_FlagRegister.halfCarry = false;
 }
 
 // Complement A (bitwise NOT)
@@ -656,7 +689,7 @@ void CPU::CCF()
 // Jump offset
 void CPU::JR_s8() 
 {
-	unsigned char offset = m_Mem->ReadU8(m_PC++);
+	signed char offset = m_Mem->ReadU8(m_PC++);
 	m_PC += offset;
 }
 
@@ -708,8 +741,10 @@ void CPU::ADD_a_r8(unsigned char reg)
 
 	m_FlagRegister.zero = result == 0;
 	m_FlagRegister.subtract = false;
-	m_FlagRegister.halfCarry = ((result & 0x00001000) >> 3) == 0;
-	m_FlagRegister.carry = ((result & 0x10000000) >> 7) == 0;
+	//m_FlagRegister.halfCarry = ((result & 0x00001000) >> 3) == 0;
+	//m_FlagRegister.carry = ((result & 0x10000000) >> 7) == 0;
+	m_FlagRegister.halfCarry = ((((result - GetR8(reg)) & 0xF) + (GetR8(reg) & 0xF)) & 0x10) == 0x10;
+	m_FlagRegister.carry = ((((result - GetR8(reg)) & 0xF) + (GetR8(reg) & 0xF)) & 0x10) == 0x100;
 }
 
 // Add the value at register r8, A and the carry flag. Stored in A.
@@ -719,19 +754,24 @@ void CPU::ADC_a_r8(unsigned char reg)
 
 	m_FlagRegister.zero = result == 0;
 	m_FlagRegister.subtract = false;
-	m_FlagRegister.halfCarry = ((result & 0x00001000) >> 3) == 0;
-	m_FlagRegister.carry = ((result & 0x10000000) >> 7) == 0;
+	//m_FlagRegister.halfCarry = ((result & 0x00001000) >> 3) == 0;
+	//m_FlagRegister.carry = ((result & 0x10000000) >> 7) == 0;
+	m_FlagRegister.halfCarry = ((((result - GetR8(reg) - m_FlagRegister.carry) & 0xF) + (GetR8(reg) - m_FlagRegister.carry & 0xF)) & 0x10) == 0x10;
+	m_FlagRegister.carry = ((((result - GetR8(reg)) - m_FlagRegister.carry & 0xF) + (GetR8(reg) - m_FlagRegister.carry & 0xF)) & 0x10) == 0x100;
 }
 
 // Subtract the value at register r8 from A. Stored in A.
 void CPU::SUB_a_r8(unsigned char reg)
 {
+	m_FlagRegister.carry = m_Registers.a < GetR8(reg);
+
 	unsigned char result = m_Registers.a - GetR8(reg);
 
 	m_FlagRegister.zero = result == 0;
 	m_FlagRegister.subtract = true;
-	m_FlagRegister.halfCarry = ((result & 0x00001000) >> 3) == 0;
-	m_FlagRegister.carry = ((result & 0x10000000) >> 7) == 0;
+	//m_FlagRegister.halfCarry = ((result & 0x00001000) >> 3) == 0;
+	//m_FlagRegister.carry = ((result & 0x10000000) >> 7) == 0;
+	m_FlagRegister.halfCarry = ((((result + GetR8(reg)) & 0xF) - (GetR8(reg) & 0xF)) & 0x10) == 0x10;
 }
 
 // Subtract the value at register r8, A and the carry flag. Stored in A.
@@ -741,8 +781,10 @@ void CPU::SBC_a_r8(unsigned char reg)
 
 	m_FlagRegister.zero = result == 0;
 	m_FlagRegister.subtract = true;
-	m_FlagRegister.halfCarry = ((result & 0x00001000) >> 3) == 0;
-	m_FlagRegister.carry = ((result & 0x10000000) >> 7) == 0;
+	//m_FlagRegister.halfCarry = ((result & 0x00001000) >> 3) == 0;
+	//m_FlagRegister.carry = ((result & 0x10000000) >> 7) == 0;
+	m_FlagRegister.halfCarry = ((((result + GetR8(reg) + m_FlagRegister.carry) & 0xF) - (GetR8(reg) + m_FlagRegister.carry & 0xF)) & 0x10) == 0x10;
+	m_FlagRegister.carry = ((((result + GetR8(reg) + m_FlagRegister.carry) & 0xF) - (GetR8(reg) - m_FlagRegister.carry & 0xF)) & 0x10) == 0x100 || result == 0;
 }
 
 // Bitwise AND between A and register r8.
@@ -822,7 +864,7 @@ void CPU::SUB_a_imm8()
 {
 	unsigned char immediate = m_Mem->ReadU8(m_PC++);
 
-	m_FlagRegister.carry = m_Registers.a <= immediate;
+	m_FlagRegister.carry = m_Registers.a < immediate;
 
 	unsigned char result = m_Registers.a - immediate;
 	m_Registers.a = result;
@@ -964,6 +1006,10 @@ void CPU::JP_C_imm16(unsigned char cond)
 	{
 		m_PC = jumpAddress;
 	}
+	else
+	{
+		m_PC++;
+	}
 }
 
 // Jump to immediate.
@@ -1085,6 +1131,9 @@ void CPU::PUSH_r16(unsigned char reg)
 void CPU::LDH_c_a()
 {
 	unsigned short address = m_Registers.c + 0xFF00;
+
+	if (address == 0xFF01) Log::LogInfo((char*)&m_Registers.a);
+
 	m_Mem->WriteU8(address, m_Registers.a);
 }
 
@@ -1092,6 +1141,9 @@ void CPU::LDH_c_a()
 void CPU::LDH_imm8_a()
 {
 	unsigned short address = m_Mem->ReadU8(m_PC++) + 0xFF00;
+
+	if (address == 0xFF01) Log::LogInfo((char*)&m_Registers.a);
+
 	m_Mem->WriteU8(address, m_Registers.a);
 }
 
@@ -1102,6 +1154,8 @@ void CPU::LD_imm16_a()
 	unsigned char msb = m_Mem->ReadU8(m_PC++);
 
 	unsigned short address = ((unsigned short)msb << 8) | lsb;
+
+	if (address == 0xFF01) Log::LogInfo((char*)&m_Registers.a);
 
 	m_Mem->WriteU8(address, m_Registers.a);
 }
@@ -1139,8 +1193,8 @@ void CPU::ADD_SP_imm8()
 
 	m_FlagRegister.zero = false;
 	m_FlagRegister.subtract = false;
-	m_FlagRegister.halfCarry = ((result & 0x00001000) >> 3) == 0;
-	m_FlagRegister.carry = ((result & 0x10000000) >> 7) == 0;
+	m_FlagRegister.halfCarry = ((((result - immediate) & 0xF) + (immediate & 0xF)) & 0x10) == 0x10;
+	m_FlagRegister.carry = ((((result - immediate) & 0xF) + (immediate & 0xF)) & 0x10) == 0x100;
 }
 
 // Add to SP a SIGNED immediate and store it in HL.
@@ -1152,8 +1206,8 @@ void CPU::LD_HL_SLimm8()
 
 	m_FlagRegister.zero = false;
 	m_FlagRegister.subtract = false;
-	m_FlagRegister.halfCarry = ((result & 0x00001000) >> 3) == 0;
-	m_FlagRegister.carry = ((result & 0x10000000) >> 7) == 0;
+	m_FlagRegister.halfCarry = (((m_SP - immediate & 0xF) - (immediate & 0xF)) & 0x10) == 0x10;
+	m_FlagRegister.carry = (((m_SP - immediate & 0xF) - (immediate & 0xF)) & 0x10) == 0x100;
 }
 
 // Copy register pair HL into SP
