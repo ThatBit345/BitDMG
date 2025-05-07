@@ -24,7 +24,7 @@ public:
 
 	inline bool IsValid() { return m_IsValid; }
 	unsigned char ReadU8(int address);
-	unsigned char ReadU16(int address);
+	unsigned short ReadU16(int address);
 	void CheckROMWrite(int address, unsigned char value);
 	inline Mapper GetMapper() { return m_Hardware.mapper; }
 

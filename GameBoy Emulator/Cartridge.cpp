@@ -145,7 +145,7 @@ Cartridge::Cartridge(const char* romPath) : m_ROMBank(1)
 
 	// Calculate the size of the rom specified in the header
 	size_t romSize = 32768 * std::pow(2, header[0x0148]);
-	this->m_Rom.reserve(romSize);
+	this->m_Rom.resize(romSize);
 
 	// Copy ROM into cartridge memory
 	file.seekg(0, std::ios::beg);
@@ -157,9 +157,11 @@ Cartridge::Cartridge(const char* romPath) : m_ROMBank(1)
 		return;
 	}
 
-	this->m_Rom.insert(this->m_Rom.begin(),
-		std::istream_iterator<unsigned char>(file),
-		std::istream_iterator<unsigned char>());
+	//this->m_Rom.insert(this->m_Rom.begin(),
+	//	std::istream_iterator<unsigned char>(file),
+	//	std::istream_iterator<unsigned char>());
+
+	file.read(reinterpret_cast<char*> (&m_Rom[0]), (romSize - 2) * sizeof(m_Rom[0]));
 
 	std::string sizeLogTxt = "ROM file of size: " + std::to_string(romSize);
 	Log::LogInfo(sizeLogTxt.c_str());
@@ -188,7 +190,7 @@ unsigned char Cartridge::ReadU8(int address)
 	return m_Rom[address];
 }
 
-unsigned char Cartridge::ReadU16(int address)
+unsigned short Cartridge::ReadU16(int address)
 {
 	if (address >= 0x4000 && m_Hardware.mapper == Mapper::MBC1) // In banked area
 	{
@@ -197,13 +199,13 @@ unsigned char Cartridge::ReadU16(int address)
 		unsigned char lsb = m_Rom[bankAddress + (m_ROMBank * (unsigned short)0x4000)];
 		unsigned char msb = m_Rom[bankAddress + 1 + (m_ROMBank * (unsigned short)0x4000)];
 
-		return ((unsigned short)lsb << 8) | msb;
+		return ((unsigned short)msb << 8) | lsb;
 	}
 
 	unsigned char lsb = m_Rom[address];
 	unsigned char msb = m_Rom[address + 1];
 
-	return ((unsigned short)lsb << 8) | msb;
+	return ((unsigned short)msb << 8) | lsb;
 }
 
 void Cartridge::CheckROMWrite(int address, unsigned char value)

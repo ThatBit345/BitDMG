@@ -1,5 +1,8 @@
 #include <memory>
 #include <filesystem>
+#include <iostream>
+#include <fstream>
+#include <cstdio>
 
 #include "Log.h"
 #include "Memory.h"
@@ -8,6 +11,10 @@
 
 int main(int argc, char* argv[])
 {
+    // Remap clog to file
+    std::ofstream ofs("log.txt");
+    std::clog.rdbuf(ofs.rdbuf());
+
     std::filesystem::path romPath;
     if (argc == 1) romPath = std::filesystem::current_path() / "01-special.gb";
     else romPath = argv[1];

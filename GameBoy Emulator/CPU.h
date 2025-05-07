@@ -70,8 +70,10 @@ private:
 	void SetR8(unsigned char reg, unsigned char value);
 	unsigned char GetR8(unsigned char reg);
 
-	void SetR16(unsigned char reg, unsigned char value);
+	void SetR16(unsigned char reg, unsigned short value);
 	unsigned short GetR16(unsigned char reg);
+
+	void Log();
 
 	#pragma region DOUBLE REGISTERS
 	void SetAF(unsigned short value);

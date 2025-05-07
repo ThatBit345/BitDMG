@@ -12,6 +12,7 @@ public:
 	void WriteU8(int address, unsigned char value);
 
 	unsigned short ReadU16(int address);
+	unsigned short ReadU16Stack(int address);
 	void WriteU16(int address, unsigned short value);
 	void WriteU16(int address, unsigned char lsb, unsigned char msb);
 

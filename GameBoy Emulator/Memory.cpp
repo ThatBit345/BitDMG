@@ -49,7 +49,7 @@ Memory::Memory(const Cartridge& cart) : m_Cartridge(cart)
 	m_Memory[0xFF41] = 0x85; //STAT
 	m_Memory[0xFF42] = 0x00; //SCY
 	m_Memory[0xFF43] = 0x00; //SCX
-	m_Memory[0xFF44] = 0x00; //LY
+	m_Memory[0xFF44] = 0x90; //LY
 	m_Memory[0xFF45] = 0x00; //LYC
 	m_Memory[0xFF46] = 0xFF; //DMA
 	m_Memory[0xFF47] = 0xFC; //BGP
@@ -82,7 +82,7 @@ unsigned short Memory::ReadU16(int address)
 	unsigned char lsb = m_Memory[address];
 	unsigned char msb = m_Memory[address + 1];
 
-	return ((unsigned short)lsb << 8) | msb;
+	return ((unsigned short)msb << 8) | lsb;
 }
 
 void Memory::WriteU16(int address, unsigned short value)

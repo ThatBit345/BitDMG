@@ -3,6 +3,7 @@
 
 #include <iostream>
 #include <sstream>
+#include <iomanip>
 
 CPU::CPU(std::shared_ptr<Memory> memory) : m_SP(0xFFFE), m_PC(0x0100)
 {
@@ -16,7 +17,8 @@ CPU::CPU(std::shared_ptr<Memory> memory) : m_SP(0xFFFE), m_PC(0x0100)
 	m_Registers.l = 0x4D;
 
 	m_FlagRegister.zero = true;
-	m_FlagRegister.subtract = false;
+	m_FlagRegister.halfCarry = true;
+	m_FlagRegister.carry = true;
 
 	m_IME = false;
 	m_EnableIME = false;
@@ -26,6 +28,8 @@ CPU::CPU(std::shared_ptr<Memory> memory) : m_SP(0xFFFE), m_PC(0x0100)
 
 bool CPU::Cycle()
 {
+	Log();
+
 	unsigned char opcode = m_Mem->ReadU8(m_PC++);
 
 	if(!IsValidOpcode(opcode))
@@ -267,7 +271,7 @@ unsigned char CPU::GetR8(unsigned char reg)
 	}
 }
 
-void CPU::SetR16(unsigned char reg, unsigned char value)
+void CPU::SetR16(unsigned char reg, unsigned short value)
 {
 	switch (reg)
 	{
@@ -307,6 +311,25 @@ unsigned short CPU::GetR16(unsigned char reg)
 	}
 }
 
+void CPU::Log()
+{
+	std::clog << std::hex << std::uppercase <<
+		"A:" << std::setw(2) << std::setfill('0') << (int)m_Registers.a <<
+		" F:" << std::setw(2) << std::setfill('0') << (int)m_FlagRegister.toU8() <<
+		" B:" << std::setw(2) << std::setfill('0') << (int)m_Registers.b <<
+		" C:" << std::setw(2) << std::setfill('0') << (int)m_Registers.c <<
+		" D:" << std::setw(2) << std::setfill('0') << (int)m_Registers.d <<
+		" E:" << std::setw(2) << std::setfill('0') << (int)m_Registers.e <<
+		" H:" << std::setw(2) << std::setfill('0') << (int)m_Registers.h <<
+		" L:" << std::setw(2) << std::setfill('0') << (int)m_Registers.l <<
+		" SP:" << std::setw(4) << std::setfill('0') << (int)m_SP <<
+		" PC:" << std::setw(4) << std::setfill('0') << (int)m_PC <<
+		" PCMEM:" << std::setw(2) << std::setfill('0') << (int)m_Mem->ReadU8(m_PC) <<
+		"," << std::setw(2) << std::setfill('0') << (int)m_Mem->ReadU8(m_PC + 1) <<
+		"," << std::setw(2) << std::setfill('0') << (int)m_Mem->ReadU8(m_PC + 2) <<
+		"," << std::setw(2) << std::setfill('0') << (int)m_Mem->ReadU8(m_PC + 3) <<
+		std::endl;
+}
 
 #pragma region DOUBLE REGISTERS
 void CPU::SetAF(unsigned short value)
@@ -391,7 +414,7 @@ void CPU::NOP()
 void CPU::LD_r16_imm16(unsigned char reg)
 {
 	unsigned short value = m_Mem->ReadU16(m_PC++);
-
+	m_PC++; // Adjust for the two memory reads for imm16
 	SetR16(reg, value);
 }
 
@@ -497,7 +520,7 @@ void CPU::INC_r8(unsigned char reg)
 
 	m_FlagRegister.zero = (result == 0);
 	m_FlagRegister.subtract = false;
-	m_FlagRegister.halfCarry = ((result & 0b00001000) >> 3 == 1);
+	m_FlagRegister.halfCarry = ((((result - 1) & 0xF) + (1 & 0xF)) & 0x10) == 0x10;
 }
 
 // Decrement value at register r8 by 1
@@ -508,7 +531,7 @@ void CPU::DEC_r8(unsigned char reg)
 
 	m_FlagRegister.zero = (result == 0);
 	m_FlagRegister.subtract = true;
-	m_FlagRegister.halfCarry = ((result & 0b00001000) >> 3 == 1);
+	m_FlagRegister.halfCarry = ((((result + 1) & 0xF) - (1 & 0xF)) & 0x10) == 0x10;
 }
 
 // Copy the immediate value into register r8
@@ -629,7 +652,7 @@ void CPU::JR_s8()
 // Jump conditional
 void CPU::JR_C(unsigned char cond)
 {
-	unsigned char offset = m_Mem->ReadU8(m_PC++);
+	signed char offset = m_Mem->ReadU8(m_PC++);
 
 	if(cond == 0 && !m_FlagRegister.zero) // Not zero
 	{
@@ -658,7 +681,7 @@ void CPU::STOP()
 // Copy value from first register into second.
 void CPU::LD_r8_r8(unsigned char r1, unsigned char r2)
 {
-	SetR8(r2, GetR8(r1));
+	SetR8(r1, GetR8(r2));
 }
 
 // Enter CPU low-power mode.
@@ -751,8 +774,8 @@ void CPU::CP_a_r8(unsigned char reg)
 
 	m_FlagRegister.zero = result == 0;
 	m_FlagRegister.subtract = true;
-	m_FlagRegister.halfCarry = ((result & 0x00001000) >> 3) == 0;
-	m_FlagRegister.carry = ((result & 0x10000000) >> 7) == 0;
+	m_FlagRegister.halfCarry = (((m_Registers.a & 0xF) + (GetR8(reg) & 0xF)) & 0x10) == 0x10;
+	m_FlagRegister.carry = (((m_Registers.a & 0xF) + (GetR8(reg) & 0xF)) & 0x10) == 0x100;
 }
 
 // Add the immediate value and A. Stored in A.
@@ -761,11 +784,12 @@ void CPU::ADD_a_imm8()
 	unsigned char immediate = m_Mem->ReadU8(m_PC++);
 
 	unsigned char result = m_Registers.a + immediate;
+	m_Registers.a = result;
 
 	m_FlagRegister.zero = result == 0;
 	m_FlagRegister.subtract = false;
-	m_FlagRegister.halfCarry = ((result & 0x00001000) >> 3) == 0;
-	m_FlagRegister.carry = ((result & 0x10000000) >> 7) == 0;
+	m_FlagRegister.halfCarry = ((((result - immediate) & 0xF) + (immediate & 0xF)) & 0x10) == 0x10;
+	m_FlagRegister.carry = ((((result - immediate) & 0xF) + (immediate & 0xF)) & 0x10) == 0x100 || result == 0;
 }
 
 // Add the immediate value, A and the carry flag. Stored in A.
@@ -774,11 +798,12 @@ void CPU::ADC_a_imm8()
 	unsigned char immediate = m_Mem->ReadU8(m_PC++);
 
 	unsigned char result = m_Registers.a + immediate + m_FlagRegister.carry;
+	m_Registers.a = result;
 
 	m_FlagRegister.zero = result == 0;
 	m_FlagRegister.subtract = false;
-	m_FlagRegister.halfCarry = ((result & 0x00001000) >> 3) == 0;
-	m_FlagRegister.carry = ((result & 0x10000000) >> 7) == 0;
+	m_FlagRegister.halfCarry = ((((result - immediate - m_FlagRegister.carry) & 0xF) + (immediate + m_FlagRegister.carry & 0xF)) & 0x10) == 0x10;
+	m_FlagRegister.carry = ((((result - immediate - m_FlagRegister.carry) & 0xF) + (immediate + m_FlagRegister.carry & 0xF)) & 0x10) == 0x100 || result == 0;
 }
 
 // Subtract the immediate value and A. Stored in A.
@@ -786,12 +811,14 @@ void CPU::SUB_a_imm8()
 {
 	unsigned char immediate = m_Mem->ReadU8(m_PC++);
 
+	m_FlagRegister.carry = m_Registers.a <= immediate;
+
 	unsigned char result = m_Registers.a - immediate;
+	m_Registers.a = result;
 
 	m_FlagRegister.zero = result == 0;
 	m_FlagRegister.subtract = true;
-	m_FlagRegister.halfCarry = ((result & 0x00001000) >> 3) == 0;
-	m_FlagRegister.carry = ((result & 0x10000000) >> 7) == 0;
+	m_FlagRegister.halfCarry = ((((result + immediate) & 0xF) - (immediate & 0xF)) & 0x10) == 0x10;
 }
 
 // Subtract the immediate value, A and the carry flag. Stored in A.
@@ -800,11 +827,12 @@ void CPU::SBC_a_imm8()
 	unsigned char immediate = m_Mem->ReadU8(m_PC++);
 
 	unsigned char result = m_Registers.a - immediate - m_FlagRegister.carry;
+	m_Registers.a = result;
 
 	m_FlagRegister.zero = result == 0;
 	m_FlagRegister.subtract = true;
-	m_FlagRegister.halfCarry = ((result & 0x00001000) >> 3) == 0;
-	m_FlagRegister.carry = ((result & 0x10000000) >> 7) == 0;
+	m_FlagRegister.halfCarry = ((((result + immediate + m_FlagRegister.carry) & 0xF) - (immediate - m_FlagRegister.carry & 0xF)) & 0x10) == 0x10;
+	m_FlagRegister.carry = ((((result + immediate + m_FlagRegister.carry) & 0xF) - (immediate - m_FlagRegister.carry & 0xF)) & 0x10) == 0x100 || result == 0;
 }
 
 // Bitwise AND the immediate value and A. Stored in A.
@@ -855,8 +883,8 @@ void CPU::CP_a_imm8()
 
 	m_FlagRegister.zero = result == 0;
 	m_FlagRegister.subtract = true;
-	m_FlagRegister.halfCarry = ((result & 0x00001000) >> 3) == 0;
-	m_FlagRegister.carry = ((result & 0x10000000) >> 7) == 0;
+	m_FlagRegister.halfCarry = (((m_Registers.a & 0xF) - (immediate & 0xF)) & 0x10) == 0x10;
+	m_FlagRegister.carry = (((m_Registers.a & 0xF) + (immediate & 0xF)) & 0x10) == 0x100;
 }
 
 // Return conditional.
@@ -885,7 +913,8 @@ void CPU::RET_C(unsigned char cond)
 // Return.
 void CPU::RET()
 {
-	m_PC = m_Mem->ReadU16(m_SP);
+	m_SP++;
+	m_PC = m_Mem->ReadU16(m_SP++); 
 }
 
 // Return and enable interrupts.
@@ -950,18 +979,23 @@ void CPU::CALL_C_imm16(unsigned char cond)
 	{
 		CALL_imm16();
 	}
+	else
+	{
+		m_PC += 2;
+	}
 }
 
 // Call function.
 void CPU::CALL_imm16()
 {
-	unsigned short jumpAddress = m_Mem->ReadU16(m_PC++);
+	unsigned char jumpAddressLsb = m_Mem->ReadU8(m_PC++);
+	unsigned char jumpAddressMsb = m_Mem->ReadU8(m_PC++);
 
 	// Write return address in the stack
 	m_SP--;
 	m_Mem->WriteU16(m_SP, m_PC);
-
-	m_PC = jumpAddress;
+	m_SP--; // Adjust for the second read
+	m_PC = ((unsigned short)jumpAddressMsb << 8) | jumpAddressLsb;
 }
 
 // Reset/call function in target vector.
@@ -969,36 +1003,76 @@ void CPU::RST_tgt3(unsigned char tgt)
 {
 	// Write return address in the stack
 	m_SP--;
-	m_Mem->WriteU16(m_SP, m_PC);
+	m_Mem->WriteU16(m_SP, ++m_PC);
 
 	m_PC = (unsigned short)tgt;
 }
 
-// Pop stack to register r16.
+// Pop stack to register r16. (Includes AF)
 void CPU::POP_r16(unsigned char reg)
 {
-	SetR16(reg, m_Mem->ReadU16(m_SP));
-	m_SP += 2;
+	unsigned short value = m_Mem->ReadU16(++m_SP);
+
+	switch (reg)
+	{
+	case 0:
+		SetBC(value);
+		break;
+
+	case 1:
+		SetDE(value);
+		break;
+
+	case 2:
+		SetHL(value);
+		break;
+
+	case 3:
+		SetAF(value);
+		break;
+	}
+
+	m_SP++;
 }
 
-// Push register r16 into stack.
+// Push register r16 into stack. (Includes AF)
 void CPU::PUSH_r16(unsigned char reg)
 {
-	m_Mem->WriteU16(m_SP, GetR16(reg));
-	m_SP -= 2;
+	m_SP--;
+
+	switch (reg)
+	{
+	case 0:
+		m_Mem->WriteU16(m_SP, GetBC());
+		break;
+
+	case 1:
+		m_Mem->WriteU16(m_SP, GetDE());
+		break;
+
+	case 2:
+		m_Mem->WriteU16(m_SP, GetHL());
+		break;
+
+	case 3:
+		m_Mem->WriteU16(m_SP, GetAF());
+		break;
+	}
+	
+	m_SP--;
 }
 
 // Load from A into address C + 0xFF00.
 void CPU::LDH_c_a()
 {
-	unsigned short address = m_Registers.c + 0xFF;
+	unsigned short address = m_Registers.c + 0xFF00;
 	m_Mem->WriteU8(address, m_Registers.a);
 }
 
 // Load from A into address imm8 + 0xFF00.
 void CPU::LDH_imm8_a()
 {
-	unsigned short address = m_Mem->ReadU8(m_PC++) + 0xFF;
+	unsigned short address = m_Mem->ReadU8(m_PC++) + 0xFF00;
 	m_Mem->WriteU8(address, m_Registers.a);
 }
 
@@ -1008,7 +1082,7 @@ void CPU::LD_imm16_a()
 	unsigned char lsb = m_Mem->ReadU8(m_PC++);
 	unsigned char msb = m_Mem->ReadU8(m_PC++);
 
-	unsigned short address = ((unsigned short)lsb << 8) | msb;
+	unsigned short address = ((unsigned short)msb << 8) | lsb;
 
 	m_Mem->WriteU8(address, m_Registers.a);
 }
@@ -1016,14 +1090,14 @@ void CPU::LD_imm16_a()
 // Load from address C + 0xFF00 into register A.
 void CPU::LDH_a_c()
 {
-	unsigned short address = m_Registers.c + 0xFF;
+	unsigned short address = m_Registers.c + 0xFF00;
 	m_Registers.a = m_Mem->ReadU8(address);
 }
 
 // Load from address imm8 + 0xFF00 into register A.
 void CPU::LDH_a_imm8()
 {
-	unsigned short address = m_Mem->ReadU8(m_PC++) + 0xFF;
+	unsigned short address = m_Mem->ReadU8(m_PC++) + 0xFF00;
 	m_Registers.a = m_Mem->ReadU8(address);
 }
 
@@ -1033,7 +1107,7 @@ void CPU::LD_a_imm16()
 	unsigned char lsb = m_Mem->ReadU8(m_PC++);
 	unsigned char msb = m_Mem->ReadU8(m_PC++);
 
-	unsigned short address = ((unsigned short)lsb << 8) | msb;
+	unsigned short address = ((unsigned short)msb << 8) | lsb;
 	m_Registers.a = m_Mem->ReadU8(address);
 }
 
