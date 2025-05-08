@@ -5,7 +5,7 @@
 #include <sstream>
 #include <iomanip>
 
-CPU::CPU(std::shared_ptr<Memory> memory) : m_SP(0xFFFE), m_PC(0x0100)
+CPU::CPU(std::shared_ptr<Memory> memory) : m_SP(0xFFFE), m_PC(0x0100), m_Halted(false), m_HaltBug(false)
 {
 	// Mimic state after boot ROM
 	m_Registers.a = 0x01;
@@ -45,6 +45,8 @@ int CPU::Cycle()
 		m_PC--;
 		m_HaltBug = false;
 	}
+
+	int cycles = 0;
 
 	// Opcode decoding, method described by Scott Mansell in the website below
 	// https://archive.gbdev.io/salvage/decoding_gbz80_opcodes/Decoding%20Gamboy%20Z80%20Opcodes.html
@@ -213,7 +215,7 @@ int CPU::Cycle()
 		m_EnableIME = false;
 	}
 
-	return false;
+	return cycles;
 }
 
 void CPU::CheckInterrupts()
@@ -451,21 +453,23 @@ int CPU::UninplementedOpcode(int opcode)
 }
 
 // No operation
-void CPU::NOP()
+int CPU::NOP()
 {
-	return;
+	return 1;
 }
 
 // Copy the immediate value into register r16
-void CPU::LD_r16_imm16(unsigned char reg)
+int CPU::LD_r16_imm16(unsigned char reg)
 {
 	unsigned short value = m_Mem->ReadU16(m_PC++);
 	m_PC++; // Adjust for the two memory reads for imm16
 	SetR16(reg, value);
+
+	return 3;
 }
 
-// Copy the value in register A into the byte pointed to by r16 (r16mem)
-void CPU::LD_r16_a(unsigned char reg)
+// Copy the value in register A into the byte pointed to by register r16 (r16mem)
+int CPU::LD_r16_a(unsigned char reg)
 {
 	unsigned short address = 0x0000;
 
@@ -491,10 +495,12 @@ void CPU::LD_r16_a(unsigned char reg)
 	}
 
 	m_Mem->WriteU8(address, m_Registers.a);
+
+	return 2;
 }
 
-// Copy the byte pointed to by register r16 into A (r16mem)
-void CPU::LD_a_r16(unsigned char reg)
+// Copy the byte pointed to by register r16 into register A (r16mem)
+int CPU::LD_a_r16(unsigned char reg)
 {
 	unsigned short address = 0x0000;
 
@@ -520,10 +526,12 @@ void CPU::LD_a_r16(unsigned char reg)
 	}
 
 	m_Registers.a = m_Mem->ReadU8(address);
+
+	return 2;
 }
 
 // Copy the immediate value into SP
-void CPU::LD_imm16_SP()
+int CPU::LD_imm16_SP()
 {
 	unsigned char lsb = m_Mem->ReadU8(m_PC++);
 	unsigned char msb = m_Mem->ReadU8(m_PC++);
@@ -531,22 +539,26 @@ void CPU::LD_imm16_SP()
 	unsigned short address = ((unsigned short)lsb << 8) | msb;
 
 	m_Mem->WriteU16(address, m_SP);
+
+	return 5;
 }
 
 // Increment value at register r16 by 1
-void CPU::INC_r16(unsigned char reg)
+int CPU::INC_r16(unsigned char reg)
 {
 	SetR16(reg, GetR16(reg) + 1);
+	return 2;
 }
 
 // Decrement value at register r16 by 1
-void CPU::DEC_r16(unsigned char reg)
+int CPU::DEC_r16(unsigned char reg)
 {
 	SetR16(reg, GetR16(reg) - 1);
+	return 2;
 }
 
 // Add value in HL to value at register r16
-void CPU::ADD_HL_r16(unsigned char reg)
+int CPU::ADD_HL_r16(unsigned char reg)
 {
 	unsigned short val = GetR16(reg);
 
@@ -556,13 +568,13 @@ void CPU::ADD_HL_r16(unsigned char reg)
 	// Set flags
 	m_FlagRegister.subtract = false;
 	m_FlagRegister.halfCarry = ((((result - val) & 0xFFF) + (val & 0xFFF)) & 0x1000) == 0x1000;
-	//m_FlagRegister.halfCarry = ((result & 0b0000100000000000) >> 11 == 1);
 	m_FlagRegister.carry = ((((result - val) & 0xFFF) + (val & 0xFFF)) & 0x1000) == 0x10000;
-	//m_FlagRegister.carry = ((result & 0b1000000000000000) >> 15 == 1);
+
+	return 2;
 }
 
 // Increment value at register r8 by 1
-void CPU::INC_r8(unsigned char reg)
+int CPU::INC_r8(unsigned char reg)
 {
 	unsigned char result = GetR8(reg) + 1;
 	SetR8(reg, result);
@@ -570,10 +582,13 @@ void CPU::INC_r8(unsigned char reg)
 	m_FlagRegister.zero = (result == 0);
 	m_FlagRegister.subtract = false;
 	m_FlagRegister.halfCarry = ((((result - 1) & 0xF) + (1 & 0xF)) & 0x10) == 0x10;
+
+	if (reg == 6) return 3;
+	else return 1;
 }
 
 // Decrement value at register r8 by 1
-void CPU::DEC_r8(unsigned char reg)
+int CPU::DEC_r8(unsigned char reg)
 {
 	unsigned char result = GetR8(reg) - 1;
 	SetR8(reg, result);
@@ -581,18 +596,24 @@ void CPU::DEC_r8(unsigned char reg)
 	m_FlagRegister.zero = (result == 0);
 	m_FlagRegister.subtract = true;
 	m_FlagRegister.halfCarry = ((((result + 1) & 0xF) - (1 & 0xF)) & 0x10) == 0x10;
+
+	if (reg == 6) return 3;
+	else return 1;
 }
 
 // Copy the immediate value into register r8
-void CPU::LD_r8_imm8(unsigned char reg)
+int CPU::LD_r8_imm8(unsigned char reg)
 {
 	unsigned char value = m_Mem->ReadU8(m_PC++);
 
 	SetR8(reg, value);
+
+	if (reg == 6) return 2;
+	else return 2;
 }
 
 // Rotate A to the left (circular)
-void CPU::RLCA()
+int CPU::RLCA()
 {
 	// Store the right-most byte and add it later to the shifted number
 	unsigned char carryByte = (m_Registers.a & 0b10000000) >> 7;
@@ -602,10 +623,12 @@ void CPU::RLCA()
 	m_FlagRegister.reset();
 	m_FlagRegister.zero = m_Registers.a == 0;
 	m_FlagRegister.carry = carryByte;
+
+	return 1;
 }
 
 // Rotate A to the right (circular)
-void CPU::RRCA()
+int CPU::RRCA()
 {
 	// Store the left-most byte and add it later to the shifted number
 	unsigned char carryByte = (m_Registers.a & 0b00000001);
@@ -615,10 +638,12 @@ void CPU::RRCA()
 	m_FlagRegister.reset();
 	m_FlagRegister.zero = m_Registers.a == 0;
 	m_FlagRegister.carry = carryByte;
+
+	return 1;
 }
 
 // Rotate A to the left THROUGH the carry flag
-void CPU::RLA()
+int CPU::RLA()
 {
 	unsigned char oldCarry = m_FlagRegister.carry;
 	unsigned char carryByte = (m_Registers.a & 0b10000000);
@@ -628,10 +653,12 @@ void CPU::RLA()
 	m_FlagRegister.reset();
 	m_FlagRegister.zero = m_Registers.a == 0;
 	m_FlagRegister.carry = carryByte;
+
+	return 1;
 }
 
 // Rotate A to the right THROUGH the carry flag
-void CPU::RRA()
+int CPU::RRA()
 {
 	unsigned char oldCarry = m_FlagRegister.carry;
 	unsigned char carryByte = (m_Registers.a & 0b00000001);
@@ -641,35 +668,13 @@ void CPU::RRA()
 	m_FlagRegister.reset();
 	//m_FlagRegister.zero = m_Registers.a == 0;
 	m_FlagRegister.carry = carryByte;
+
+	return 1;
 }
 
 // Decimal adjust A to binary coded decimal
-void CPU::DAA()
+int CPU::DAA()
 {
-	//unsigned char adjustment = 0x00;
-	//int result;
-	//
-	//if(m_FlagRegister.subtract)
-	//{
-	//	if (m_FlagRegister.halfCarry) adjustment += 0x6;
-	//	if (m_FlagRegister.carry) adjustment += 0x60;
-	//	result = m_Registers.a;
-	//	result -= adjustment;
-	//	m_Registers.a = result & 0xFF;
-	//}
-	//else
-	//{
-	//	if (m_FlagRegister.halfCarry || (m_Registers.a & 0xF) > 0x9) adjustment += 0x6;
-	//	if (m_FlagRegister.carry || m_Registers.a > 0x99) adjustment += 0x60;
-	//	result = m_Registers.a;
-	//	result += adjustment;
-	//	m_Registers.a = result & 0xFF;
-	//}
-	//
-	//m_FlagRegister.zero = (m_Registers.a == 0);
-	//m_FlagRegister.halfCarry = false;
-	//m_FlagRegister.carry = (result & 0x100) == 0x100;
-
 	// Implementation from https://blog.ollien.com/posts/gb-daa/
 	unsigned char a = m_Registers.a;
 	unsigned char offset = 0x00;
@@ -692,42 +697,52 @@ void CPU::DAA()
 
 	m_FlagRegister.zero = m_Registers.a == 0;
 	m_FlagRegister.halfCarry = false;
+
+	return 1;
 }
 
 // Complement A (bitwise NOT)
-void CPU::CPL()
+int CPU::CPL()
 {
 	m_Registers.a = ~m_Registers.a;
 
 	m_FlagRegister.subtract = true;
 	m_FlagRegister.halfCarry = true;
+
+	return 1;
 }
 
 // Set the carry flag
-void CPU::SCF()
+int CPU::SCF()
 {
 	m_FlagRegister.subtract = false;
 	m_FlagRegister.halfCarry = false;
 	m_FlagRegister.carry = true;
+
+	return 1;
 }
 
 // Complement the carry flag
-void CPU::CCF()
+int CPU::CCF()
 {
 	m_FlagRegister.subtract = false;
 	m_FlagRegister.halfCarry = false;
 	m_FlagRegister.carry = !m_FlagRegister.carry;
+
+	return 1;
 }
 
 // Jump offset
-void CPU::JR_s8() 
+int CPU::JR_s8() 
 {
 	signed char offset = m_Mem->ReadU8(m_PC++);
 	m_PC += offset;
+
+	return 3;
 }
 
 // Jump conditional
-void CPU::JR_C(unsigned char cond)
+int CPU::JR_C(unsigned char cond)
 {
 	signed char offset = m_Mem->ReadU8(m_PC++);
 
@@ -747,22 +762,32 @@ void CPU::JR_C(unsigned char cond)
 	{
 		m_PC += offset;
 	}
+	else
+	{
+		return 2; // Condition false, 2 machine cycles
+	}
+
+	return 3; // Condition true, 3 machine cycles
 }
 
 // Enter CPU very low power mode.
-void CPU::STOP()
+int CPU::STOP()
 {
 	UninplementedOpcode(0x10);
+	return 1;
 }
 
 // Copy value from first register into second.
-void CPU::LD_r8_r8(unsigned char r1, unsigned char r2)
+int CPU::LD_r8_r8(unsigned char r1, unsigned char r2)
 {
 	SetR8(r1, GetR8(r2));
+
+	if (r1 == 6 || r2 == 6) return 2;
+	else return 1;
 }
 
 // Enter CPU low-power mode.
-void CPU::HALT()
+int CPU::HALT()
 {
 	m_Halted = true;
 
@@ -771,10 +796,12 @@ void CPU::HALT()
 	unsigned char IF = m_Mem->ReadU8(0xFF0F);
 
 	m_HaltBug = m_IME == 0 && (IE & IF) != 0;
+
+	return 1;
 }
 
 // Add the value at register r8 and A. Stored in A.
-void CPU::ADD_a_r8(unsigned char reg)
+int CPU::ADD_a_r8(unsigned char reg)
 {
 	unsigned char result = m_Registers.a + GetR8(reg);
 
@@ -784,10 +811,13 @@ void CPU::ADD_a_r8(unsigned char reg)
 	//m_FlagRegister.carry = ((result & 0x10000000) >> 7) == 0;
 	m_FlagRegister.halfCarry = ((((result - GetR8(reg)) & 0xF) + (GetR8(reg) & 0xF)) & 0x10) == 0x10;
 	m_FlagRegister.carry = ((((result - GetR8(reg)) & 0xF) + (GetR8(reg) & 0xF)) & 0x10) == 0x100;
+
+	if (reg == 6) return 2;
+	else return 1;
 }
 
 // Add the value at register r8, A and the carry flag. Stored in A.
-void CPU::ADC_a_r8(unsigned char reg)
+int CPU::ADC_a_r8(unsigned char reg)
 {
 	unsigned char result = m_Registers.a + GetR8(reg) + m_FlagRegister.carry;
 
@@ -797,10 +827,13 @@ void CPU::ADC_a_r8(unsigned char reg)
 	//m_FlagRegister.carry = ((result & 0x10000000) >> 7) == 0;
 	m_FlagRegister.halfCarry = ((((result - GetR8(reg) - m_FlagRegister.carry) & 0xF) + (GetR8(reg) - m_FlagRegister.carry & 0xF)) & 0x10) == 0x10;
 	m_FlagRegister.carry = ((((result - GetR8(reg)) - m_FlagRegister.carry & 0xF) + (GetR8(reg) - m_FlagRegister.carry & 0xF)) & 0x10) == 0x100;
+
+	if (reg == 6) return 2;
+	else return 1;
 }
 
 // Subtract the value at register r8 from A. Stored in A.
-void CPU::SUB_a_r8(unsigned char reg)
+int CPU::SUB_a_r8(unsigned char reg)
 {
 	m_FlagRegister.carry = m_Registers.a < GetR8(reg);
 
@@ -811,10 +844,13 @@ void CPU::SUB_a_r8(unsigned char reg)
 	//m_FlagRegister.halfCarry = ((result & 0x00001000) >> 3) == 0;
 	//m_FlagRegister.carry = ((result & 0x10000000) >> 7) == 0;
 	m_FlagRegister.halfCarry = ((((result + GetR8(reg)) & 0xF) - (GetR8(reg) & 0xF)) & 0x10) == 0x10;
+
+	if (reg == 6) return 2;
+	else return 1;
 }
 
 // Subtract the value at register r8, A and the carry flag. Stored in A.
-void CPU::SBC_a_r8(unsigned char reg)
+int CPU::SBC_a_r8(unsigned char reg)
 {
 	unsigned char result = m_Registers.a - GetR8(reg) - m_FlagRegister.carry;
 
@@ -824,10 +860,13 @@ void CPU::SBC_a_r8(unsigned char reg)
 	//m_FlagRegister.carry = ((result & 0x10000000) >> 7) == 0;
 	m_FlagRegister.halfCarry = ((((result + GetR8(reg) + m_FlagRegister.carry) & 0xF) - (GetR8(reg) + m_FlagRegister.carry & 0xF)) & 0x10) == 0x10;
 	m_FlagRegister.carry = ((((result + GetR8(reg) + m_FlagRegister.carry) & 0xF) - (GetR8(reg) - m_FlagRegister.carry & 0xF)) & 0x10) == 0x100 || result == 0;
+
+	if (reg == 6) return 2;
+	else return 1;
 }
 
 // Bitwise AND between A and register r8.
-void CPU::AND_a_r8(unsigned char reg)
+int CPU::AND_a_r8(unsigned char reg)
 {
 	m_Registers.a = m_Registers.a & GetR8(reg);
 
@@ -835,10 +874,13 @@ void CPU::AND_a_r8(unsigned char reg)
 	m_FlagRegister.subtract = false;
 	m_FlagRegister.halfCarry = true;
 	m_FlagRegister.carry = false;
+
+	if (reg == 6) return 2;
+	else return 1;
 }
 
 // Bitwise XOR between A and register r8.
-void CPU::XOR_a_r8(unsigned char reg)
+int CPU::XOR_a_r8(unsigned char reg)
 {
 	m_Registers.a = m_Registers.a ^ GetR8(reg);
 
@@ -846,10 +888,13 @@ void CPU::XOR_a_r8(unsigned char reg)
 	m_FlagRegister.subtract = false;
 	m_FlagRegister.halfCarry = false;
 	m_FlagRegister.carry = false;
+
+	if (reg == 6) return 2;
+	else return 1;
 }
 
 // Bitwise OR between A and register r8.
-void CPU::OR_a_r8(unsigned char reg)
+int CPU::OR_a_r8(unsigned char reg)
 {
 	m_Registers.a = m_Registers.a | GetR8(reg);
 
@@ -857,10 +902,13 @@ void CPU::OR_a_r8(unsigned char reg)
 	m_FlagRegister.subtract = false;
 	m_FlagRegister.halfCarry = false;
 	m_FlagRegister.carry = false;
+
+	if (reg == 6) return 2;
+	else return 1;
 }
 
 // Compare the values in A and register r8.
-void CPU::CP_a_r8(unsigned char reg)
+int CPU::CP_a_r8(unsigned char reg)
 {
 	unsigned char result = m_Registers.a - GetR8(reg);
 
@@ -868,10 +916,13 @@ void CPU::CP_a_r8(unsigned char reg)
 	m_FlagRegister.subtract = true;
 	m_FlagRegister.halfCarry = (((m_Registers.a & 0xF) + (GetR8(reg) & 0xF)) & 0x10) == 0x10;
 	m_FlagRegister.carry = (((m_Registers.a & 0xF) + (GetR8(reg) & 0xF)) & 0x10) == 0x100;
+
+	if (reg == 6) return 2;
+	else return 1;
 }
 
 // Add the immediate value and A. Stored in A.
-void CPU::ADD_a_imm8()
+int CPU::ADD_a_imm8()
 {
 	unsigned char immediate = m_Mem->ReadU8(m_PC++);
 
@@ -882,10 +933,12 @@ void CPU::ADD_a_imm8()
 	m_FlagRegister.subtract = false;
 	m_FlagRegister.halfCarry = ((((result - immediate) & 0xF) + (immediate & 0xF)) & 0x10) == 0x10;
 	m_FlagRegister.carry = ((((result - immediate) & 0xF) + (immediate & 0xF)) & 0x10) == 0x100 || result == 0;
+
+	return 2;
 }
 
 // Add the immediate value, A and the carry flag. Stored in A.
-void CPU::ADC_a_imm8()
+int CPU::ADC_a_imm8()
 {
 	unsigned char immediate = m_Mem->ReadU8(m_PC++);
 
@@ -896,10 +949,12 @@ void CPU::ADC_a_imm8()
 	m_FlagRegister.subtract = false;
 	m_FlagRegister.halfCarry = ((((result - immediate - m_FlagRegister.carry) & 0xF) + (immediate + m_FlagRegister.carry & 0xF)) & 0x10) == 0x10;
 	m_FlagRegister.carry = ((((result - immediate - m_FlagRegister.carry) & 0xF) + (immediate + m_FlagRegister.carry & 0xF)) & 0x10) == 0x100 || result == 0;
+
+	return 2;
 }
 
 // Subtract the immediate value and A. Stored in A.
-void CPU::SUB_a_imm8()
+int CPU::SUB_a_imm8()
 {
 	unsigned char immediate = m_Mem->ReadU8(m_PC++);
 
@@ -911,10 +966,12 @@ void CPU::SUB_a_imm8()
 	m_FlagRegister.zero = result == 0;
 	m_FlagRegister.subtract = true;
 	m_FlagRegister.halfCarry = ((((result + immediate) & 0xF) - (immediate & 0xF)) & 0x10) == 0x10;
+
+	return 2;
 }
 
 // Subtract the immediate value, A and the carry flag. Stored in A.
-void CPU::SBC_a_imm8()
+int CPU::SBC_a_imm8()
 {
 	unsigned char immediate = m_Mem->ReadU8(m_PC++);
 
@@ -925,10 +982,12 @@ void CPU::SBC_a_imm8()
 	m_FlagRegister.subtract = true;
 	m_FlagRegister.halfCarry = ((((result + immediate + m_FlagRegister.carry) & 0xF) - (immediate - m_FlagRegister.carry & 0xF)) & 0x10) == 0x10;
 	m_FlagRegister.carry = ((((result + immediate + m_FlagRegister.carry) & 0xF) - (immediate - m_FlagRegister.carry & 0xF)) & 0x10) == 0x100 || result == 0;
+
+	return 2;
 }
 
 // Bitwise AND the immediate value and A. Stored in A.
-void CPU::AND_a_imm8()
+int CPU::AND_a_imm8()
 {
 	unsigned char immediate = m_Mem->ReadU8(m_PC++);
 
@@ -938,10 +997,12 @@ void CPU::AND_a_imm8()
 	m_FlagRegister.subtract = false;
 	m_FlagRegister.halfCarry = true;
 	m_FlagRegister.carry = false;
+
+	return 2;
 }
 
 // Bitwise XOR the immediate value and A. Stored in A.
-void CPU::XOR_a_imm8()
+int CPU::XOR_a_imm8()
 {
 	unsigned char immediate = m_Mem->ReadU8(m_PC++);
 
@@ -951,10 +1012,12 @@ void CPU::XOR_a_imm8()
 	m_FlagRegister.subtract = false;
 	m_FlagRegister.halfCarry = false;
 	m_FlagRegister.carry = false;
+
+	return 2;
 }
 
 // Bitwise OR the immediate value and A. Stored in A.
-void CPU::OR_a_imm8()
+int CPU::OR_a_imm8()
 {
 	unsigned char immediate = m_Mem->ReadU8(m_PC++);
 
@@ -964,10 +1027,12 @@ void CPU::OR_a_imm8()
 	m_FlagRegister.subtract = false;
 	m_FlagRegister.halfCarry = false;
 	m_FlagRegister.carry = false;
+
+	return 2;
 }
 
 // Compare the immediate value and A.
-void CPU::CP_a_imm8()
+int CPU::CP_a_imm8()
 {
 	unsigned char immediate = m_Mem->ReadU8(m_PC++);
 
@@ -977,10 +1042,12 @@ void CPU::CP_a_imm8()
 	m_FlagRegister.subtract = true;
 	m_FlagRegister.halfCarry = (((m_Registers.a & 0xF) - (immediate & 0xF)) & 0x10) == 0x10;
 	m_FlagRegister.carry = (((m_Registers.a & 0xF) + (immediate & 0xF)) & 0x10) == 0x100;
+
+	return 2;
 }
 
 // Return conditional.
-void CPU::RET_C(unsigned char cond)
+int CPU::RET_C(unsigned char cond)
 {
 	unsigned short returnAddress = m_Mem->ReadU16(++m_SP);
 
@@ -1007,25 +1074,32 @@ void CPU::RET_C(unsigned char cond)
 	else
 	{
 		m_SP--;
+		return 2; // Condition false, 2 machine cycles
 	}
+
+	return 5; // Condition true, 5 machine cycles
 }
 
 // Return.
-void CPU::RET()
+int CPU::RET()
 {
 	m_SP++;
 	m_PC = m_Mem->ReadU16(m_SP++); 
+
+	return 4;
 }
 
 // Return and enable interrupts.
-void CPU::RETI()
+int CPU::RETI()
 {
 	m_IME = true;
 	RET();
+
+	return 4;
 }
 
 // Jump to immediate conditionally.
-void CPU::JP_C_imm16(unsigned char cond)
+int CPU::JP_C_imm16(unsigned char cond)
 {
 	unsigned short jumpAddress = m_Mem->ReadU16(m_PC++);
 
@@ -1048,24 +1122,30 @@ void CPU::JP_C_imm16(unsigned char cond)
 	else
 	{
 		m_PC++;
+		return 3; // Condition false, 3 machine cycles
 	}
+
+	return 4; // Condition true, 4 machine cycles
 }
 
 // Jump to immediate.
-void CPU::JP_imm16()
+int CPU::JP_imm16()
 {
 	unsigned short jumpAddress = m_Mem->ReadU16(m_PC++);
 	m_PC = jumpAddress;
+
+	return 4;
 }
 
 // Jump to address in HL.
-void CPU::JP_HL()
+int CPU::JP_HL()
 {
 	m_PC = GetHL();
+	return 1;
 }
 
 // Call function conditionally.
-void CPU::CALL_C_imm16(unsigned char cond)
+int CPU::CALL_C_imm16(unsigned char cond)
 {
 	if (cond == 0 && !m_FlagRegister.zero) // Not zero
 	{
@@ -1086,11 +1166,14 @@ void CPU::CALL_C_imm16(unsigned char cond)
 	else
 	{
 		m_PC += 2;
+		return 3; // Condition false, 3 machine cycles
 	}
+
+	return 6; // Condition false, 6 machine cycles
 }
 
 // Call function.
-void CPU::CALL_imm16()
+int CPU::CALL_imm16()
 {
 	unsigned char jumpAddressLsb = m_Mem->ReadU8(m_PC++);
 	unsigned char jumpAddressMsb = m_Mem->ReadU8(m_PC++);
@@ -1100,20 +1183,24 @@ void CPU::CALL_imm16()
 	m_Mem->WriteU16(m_SP, m_PC);
 	m_SP--; // Adjust for the second write
 	m_PC = ((unsigned short)jumpAddressMsb << 8) | jumpAddressLsb;
+
+	return 6;
 }
 
 // Reset/call function in target vector.
-void CPU::RST_tgt3(unsigned char tgt)
+int CPU::RST_tgt3(unsigned char tgt)
 {
 	// Write return address in the stack
 	m_SP--;
 	m_Mem->WriteU16(m_SP, ++m_PC);
 
 	m_PC = (unsigned short)tgt;
+
+	return 4;
 }
 
 // Pop stack to register r16. (Includes AF)
-void CPU::POP_r16(unsigned char reg)
+int CPU::POP_r16(unsigned char reg)
 {
 	unsigned short value = m_Mem->ReadU16(++m_SP);
 
@@ -1137,10 +1224,12 @@ void CPU::POP_r16(unsigned char reg)
 	}
 
 	m_SP++;
+
+	return 3;
 }
 
 // Push register r16 into stack. (Includes AF)
-void CPU::PUSH_r16(unsigned char reg)
+int CPU::PUSH_r16(unsigned char reg)
 {
 	m_SP--;
 
@@ -1164,26 +1253,32 @@ void CPU::PUSH_r16(unsigned char reg)
 	}
 	
 	m_SP--;
+
+	return 4;
 }
 
 // Load from A into address C + 0xFF00.
-void CPU::LDH_c_a()
+int CPU::LDH_c_a()
 {
 	unsigned short address = m_Registers.c + 0xFF00;
 
 	m_Mem->WriteU8(address, m_Registers.a);
+
+	return 2;
 }
 
 // Load from A into address imm8 + 0xFF00.
-void CPU::LDH_imm8_a()
+int CPU::LDH_imm8_a()
 {
 	unsigned short address = m_Mem->ReadU8(m_PC++) + 0xFF00;
 
 	m_Mem->WriteU8(address, m_Registers.a);
+
+	return 3;
 }
 
 // Load from A into address imm16.
-void CPU::LD_imm16_a()
+int CPU::LD_imm16_a()
 {
 	unsigned char lsb = m_Mem->ReadU8(m_PC++);
 	unsigned char msb = m_Mem->ReadU8(m_PC++);
@@ -1191,34 +1286,42 @@ void CPU::LD_imm16_a()
 	unsigned short address = ((unsigned short)msb << 8) | lsb;
 
 	m_Mem->WriteU8(address, m_Registers.a);
+
+	return 4;
 }
 
 // Load from address C + 0xFF00 into register A.
-void CPU::LDH_a_c()
+int CPU::LDH_a_c()
 {
 	unsigned short address = m_Registers.c + 0xFF00;
 	m_Registers.a = m_Mem->ReadU8(address);
+
+	return 2;
 }
 
 // Load from address imm8 + 0xFF00 into register A.
-void CPU::LDH_a_imm8()
+int CPU::LDH_a_imm8()
 {
 	unsigned short address = m_Mem->ReadU8(m_PC++) + 0xFF00;
 	m_Registers.a = m_Mem->ReadU8(address);
+
+	return 3;
 }
 
 // Load from address imm16 into register A.
-void CPU::LD_a_imm16()
+int CPU::LD_a_imm16()
 {
 	unsigned char lsb = m_Mem->ReadU8(m_PC++);
 	unsigned char msb = m_Mem->ReadU8(m_PC++);
 
 	unsigned short address = ((unsigned short)msb << 8) | lsb;
 	m_Registers.a = m_Mem->ReadU8(address);
+
+	return 4;
 }
 
 // Add to SP a SIGNED immediate.
-void CPU::ADD_SP_imm8()
+int CPU::ADD_SP_imm8()
 {
 	signed char immediate = m_Mem->ReadU8(m_PC++);
 	unsigned char result = m_SP + immediate;
@@ -1228,10 +1331,12 @@ void CPU::ADD_SP_imm8()
 	m_FlagRegister.subtract = false;
 	m_FlagRegister.halfCarry = ((((result - immediate) & 0xF) + (immediate & 0xF)) & 0x10) == 0x10;
 	m_FlagRegister.carry = ((((result - immediate) & 0xF) + (immediate & 0xF)) & 0x10) == 0x100;
+
+	return 4;
 }
 
 // Add to SP a SIGNED immediate and store it in HL.
-void CPU::LD_HL_SLimm8()
+int CPU::LD_HL_SLimm8()
 {
 	signed char immediate = m_Mem->ReadU8(m_PC++);
 	unsigned char result = m_SP + immediate;
@@ -1241,28 +1346,33 @@ void CPU::LD_HL_SLimm8()
 	m_FlagRegister.subtract = false;
 	m_FlagRegister.halfCarry = (((m_SP - immediate & 0xF) - (immediate & 0xF)) & 0x10) == 0x10;
 	m_FlagRegister.carry = (((m_SP - immediate & 0xF) - (immediate & 0xF)) & 0x10) == 0x100;
+
+	return 3;
 }
 
 // Copy register pair HL into SP
-void CPU::LD_SP_HL()
+int CPU::LD_SP_HL()
 {
 	m_SP = GetHL();
+	return 2;
 }
 
 // Disable interrupts
-void CPU::DI()
+int CPU::DI()
 {
 	m_IME = false;
+	return 1;
 }
 
 // Enable interrupts after next instruction
-void CPU::EI()
+int CPU::EI()
 {
 	m_EnableIME = true;
+	return 1;
 }
 
 // Rotate register r8 to the left (circular)
-void CPU::RLC_r8(unsigned char reg)
+int CPU::RLC_r8(unsigned char reg)
 {
 	unsigned char value = GetR8(reg);
 
@@ -1276,10 +1386,13 @@ void CPU::RLC_r8(unsigned char reg)
 	m_FlagRegister.reset();
 	m_FlagRegister.zero = value == 0;
 	m_FlagRegister.carry = carryByte;
+
+	if (reg == 6) return 4;
+	else return 2;
 }
 
 // Rotate register r8 to the right (circular)
-void CPU::RRC_r8(unsigned char reg)
+int CPU::RRC_r8(unsigned char reg)
 {
 	unsigned char value = GetR8(reg);
 
@@ -1293,10 +1406,13 @@ void CPU::RRC_r8(unsigned char reg)
 	m_FlagRegister.reset();
 	m_FlagRegister.zero = value == 0;
 	m_FlagRegister.carry = carryByte;
+
+	if (reg == 6) return 4;
+	else return 2;
 }
 
 // Rotate register r8 to the left THROUGH the carry flag
-void CPU::RL_r8(unsigned char reg)
+int CPU::RL_r8(unsigned char reg)
 {
 	unsigned char value = GetR8(reg);
 
@@ -1310,10 +1426,13 @@ void CPU::RL_r8(unsigned char reg)
 	m_FlagRegister.reset();
 	m_FlagRegister.zero = value == 0;
 	m_FlagRegister.carry = carryByte;
+
+	if (reg == 6) return 4;
+	else return 2;
 }
 
 // Rotate register r8 to the right THROUGH the carry flag
-void CPU::RR_r8(unsigned char reg)
+int CPU::RR_r8(unsigned char reg)
 {
 	unsigned char value = GetR8(reg);
 
@@ -1327,10 +1446,13 @@ void CPU::RR_r8(unsigned char reg)
 	m_FlagRegister.reset();
 	m_FlagRegister.zero = value == 0;
 	m_FlagRegister.carry = carryByte;
+
+	if (reg == 6) return 4;
+	else return 2;
 }
 
 // Shift register r8 to the left (arithmetically)
-void CPU::SLA_r8(unsigned char reg)
+int CPU::SLA_r8(unsigned char reg)
 {
 	unsigned char value = GetR8(reg);
 
@@ -1342,10 +1464,13 @@ void CPU::SLA_r8(unsigned char reg)
 	m_FlagRegister.reset();
 	m_FlagRegister.zero = value == 0;
 	m_FlagRegister.carry = carryByte;
+
+	if (reg == 6) return 4;
+	else return 2;
 }
 
 // Shift register r8 to the right (arithmetically)
-void CPU::SRA_r8(unsigned char reg)
+int CPU::SRA_r8(unsigned char reg)
 {
 	unsigned char value = GetR8(reg);
 
@@ -1359,10 +1484,13 @@ void CPU::SRA_r8(unsigned char reg)
 	m_FlagRegister.reset();
 	m_FlagRegister.zero = value == 0;
 	m_FlagRegister.carry = carryByte;
+
+	if (reg == 6) return 4;
+	else return 2;
 }
 
 // Swap the upper 4 bits with the lower 4 bits of register r8
-void CPU::SWAP_r8(unsigned char reg)
+int CPU::SWAP_r8(unsigned char reg)
 {
 	unsigned char value = GetR8(reg);
 
@@ -1371,10 +1499,13 @@ void CPU::SWAP_r8(unsigned char reg)
 
 	value = (lower << 4) | (upper >> 4);
 	SetR8(reg, value);
+
+	if (reg == 6) return 4;
+	else return 2;
 }
 
 // Shift register r8 to the right (logically)
-void CPU::SRL_r8(unsigned char reg)
+int CPU::SRL_r8(unsigned char reg)
 {
 	unsigned char value = GetR8(reg);
 
@@ -1387,10 +1518,13 @@ void CPU::SRL_r8(unsigned char reg)
 	m_FlagRegister.reset();
 	m_FlagRegister.zero = value == 0;
 	m_FlagRegister.carry = carryByte;
+
+	if (reg == 6) return 4;
+	else return 2;
 }
 
 // Test bit b in register r8, set Z if bit is zero
-void CPU::BIT(unsigned char bit, unsigned char reg)
+int CPU::BIT(unsigned char bit, unsigned char reg)
 {
 	unsigned char mask = 0b00000001 << bit;
 
@@ -1399,22 +1533,31 @@ void CPU::BIT(unsigned char bit, unsigned char reg)
 	m_FlagRegister.zero = !bitSet;
 	m_FlagRegister.subtract = false;
 	m_FlagRegister.halfCarry = true;
+
+	if (reg == 6) return 3;
+	else return 2;
 }
 
 // Set bit b of register r8 to 0
-void CPU::RES(unsigned char bit, unsigned char reg)
+int CPU::RES(unsigned char bit, unsigned char reg)
 {
 	unsigned char bitToSet = 0b00000001 << bit;
 
 	// Invert the mask to set the bit to 0
 	SetR8(reg, GetR8(reg) & ~bitToSet);
+
+	if (reg == 6) return 4;
+	else return 2;
 }
 
 // Set bit b of register r8 to 1
-void CPU::SET(unsigned char bit, unsigned char reg)
+int CPU::SET(unsigned char bit, unsigned char reg)
 {
 	unsigned char bitToSet = 0b00000001 << bit;
 
 	// Invert the mask to set the bit to 0
 	SetR8(reg, GetR8(reg) | bitToSet);
+
+	if (reg == 6) return 4;
+	else return 2;
 }
