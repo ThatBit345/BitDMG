@@ -54,7 +54,10 @@ class CPU
 {
 public:
 	CPU(std::shared_ptr<Memory> memory);
-	bool Cycle();
+
+	// Returns number of cycles elapsed (in machine cycles)
+	int Cycle();
+	void CheckInterrupts();
 
 private:
 	Registers m_Registers;
@@ -64,6 +67,8 @@ private:
 	unsigned short m_PC;
 	bool m_IME;
 	bool m_EnableIME;
+	bool m_Halted;
+	bool m_HaltBug;
 
 	std::shared_ptr<Memory> m_Mem;
 
@@ -89,7 +94,7 @@ private:
 
 	#pragma region OPCODES
 	bool IsValidOpcode(unsigned char opcode);
-	bool UninplementedOpcode(int opcode);
+	int UninplementedOpcode(int opcode);
 
 	void NOP();											// NOP
 	void LD_r16_imm16(unsigned char reg);				// LD r16, imm16

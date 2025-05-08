@@ -134,12 +134,14 @@
     <ClCompile Include="Cartridge.cpp" />
     <ClCompile Include="CPU.cpp" />
     <ClCompile Include="GameBoy Emulator.cpp" />
+    <ClCompile Include="GameBoy.cpp" />
     <ClCompile Include="Log.cpp" />
     <ClCompile Include="Memory.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Cartridge.h" />
     <ClInclude Include="CPU.h" />
+    <ClInclude Include="GameBoy.h" />
     <ClInclude Include="Log.h" />
     <ClInclude Include="Memory.h" />
   </ItemGroup>

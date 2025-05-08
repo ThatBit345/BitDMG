@@ -26,8 +26,10 @@ CPU::CPU(std::shared_ptr<Memory> memory) : m_SP(0xFFFE), m_PC(0x0100)
 	m_Mem = memory;
 }
 
-bool CPU::Cycle()
+int CPU::Cycle()
 {
+	if (m_Halted) return;
+
 	Log();
 
 	unsigned char opcode = m_Mem->ReadU8(m_PC++);
@@ -36,6 +38,12 @@ bool CPU::Cycle()
 	{
 		m_PC--;
 		return false;
+	}
+
+	if(m_HaltBug) // Hardware bug where the byte at PC is read twice
+	{
+		m_PC--;
+		m_HaltBug = false;
 	}
 
 	// Opcode decoding, method described by Scott Mansell in the website below
@@ -206,6 +214,35 @@ bool CPU::Cycle()
 	}
 
 	return false;
+}
+
+void CPU::CheckInterrupts()
+{
+	unsigned char IE = m_Mem->ReadU8(0xFFFF);
+	unsigned char IF = m_Mem->ReadU8(0xFF0F);
+
+	if ((IF & IE) != 0) // Interrupt pending
+	{
+		m_Halted = false;
+
+		if (m_IME == 0) return;
+
+		for (size_t i = 0; i < 5; i++)
+		{
+			bool interruptByte = (IF >> i) & 0x01;
+
+			if(interruptByte == 1)
+			{
+				m_IME = 0;
+				IF &= ~(0x01 << i); // Invert the byte that caused this interrupt
+
+				m_SP--;
+				m_Mem->WriteU16(m_SP, m_PC);
+				m_SP--; // Adjust for the second write
+				m_PC = 0x40 + 0x08 * i; // Jump to the corresponding handler
+			}
+		}
+	}
 }
 
 void CPU::SetR8(unsigned char reg, unsigned char value)
@@ -401,7 +438,7 @@ bool CPU::IsValidOpcode(unsigned char opcode)
 		opcode != 0xFD;
 }
 
-bool CPU::UninplementedOpcode(int opcode)
+int CPU::UninplementedOpcode(int opcode)
 {
 	// Print error to console
 	std::string errorTxt = "Opcode not found: ";
@@ -410,7 +447,7 @@ bool CPU::UninplementedOpcode(int opcode)
 	errorTxt = errorTxt + str.str();
 	Log::LogError(errorTxt.c_str());
 
-	return true;
+	return -1;
 }
 
 // No operation
@@ -453,8 +490,6 @@ void CPU::LD_r16_a(unsigned char reg)
 		break;
 	}
 
-	if (address == 0xFF01) Log::LogInfo((char*)&m_Registers.a);
-
 	m_Mem->WriteU8(address, m_Registers.a);
 }
 
@@ -494,8 +529,6 @@ void CPU::LD_imm16_SP()
 	unsigned char msb = m_Mem->ReadU8(m_PC++);
 
 	unsigned short address = ((unsigned short)lsb << 8) | msb;
-
-	if (address == 0xFF01) Log::LogInfo((char*)&m_Registers.a);
 
 	m_Mem->WriteU16(address, m_SP);
 }
@@ -731,7 +764,13 @@ void CPU::LD_r8_r8(unsigned char r1, unsigned char r2)
 // Enter CPU low-power mode.
 void CPU::HALT()
 {
-	UninplementedOpcode(0x76);
+	m_Halted = true;
+
+	// Halt bug
+	unsigned char IE = m_Mem->ReadU8(0xFFFF);
+	unsigned char IF = m_Mem->ReadU8(0xFF0F);
+
+	m_HaltBug = m_IME == 0 && (IE & IF) != 0;
 }
 
 // Add the value at register r8 and A. Stored in A.
@@ -1059,7 +1098,7 @@ void CPU::CALL_imm16()
 	// Write return address in the stack
 	m_SP--;
 	m_Mem->WriteU16(m_SP, m_PC);
-	m_SP--; // Adjust for the second read
+	m_SP--; // Adjust for the second write
 	m_PC = ((unsigned short)jumpAddressMsb << 8) | jumpAddressLsb;
 }
 
@@ -1132,8 +1171,6 @@ void CPU::LDH_c_a()
 {
 	unsigned short address = m_Registers.c + 0xFF00;
 
-	if (address == 0xFF01) Log::LogInfo((char*)&m_Registers.a);
-
 	m_Mem->WriteU8(address, m_Registers.a);
 }
 
@@ -1141,8 +1178,6 @@ void CPU::LDH_c_a()
 void CPU::LDH_imm8_a()
 {
 	unsigned short address = m_Mem->ReadU8(m_PC++) + 0xFF00;
-
-	if (address == 0xFF01) Log::LogInfo((char*)&m_Registers.a);
 
 	m_Mem->WriteU8(address, m_Registers.a);
 }
@@ -1154,8 +1189,6 @@ void CPU::LD_imm16_a()
 	unsigned char msb = m_Mem->ReadU8(m_PC++);
 
 	unsigned short address = ((unsigned short)msb << 8) | lsb;
-
-	if (address == 0xFF01) Log::LogInfo((char*)&m_Registers.a);
 
 	m_Mem->WriteU8(address, m_Registers.a);
 }
