@@ -28,7 +28,7 @@ CPU::CPU(std::shared_ptr<Memory> memory) : m_SP(0xFFFE), m_PC(0x0100), m_Halted(
 
 int CPU::Cycle()
 {
-	if (m_Halted) return;
+	if (m_Halted) return 0;
 
 	Log();
 
@@ -45,6 +45,8 @@ int CPU::Cycle()
 		m_PC--;
 		m_HaltBug = false;
 	}
+
+	if (CheckInterrupts() == 5) return 5;
 
 	int cycles = 0;
 
@@ -218,7 +220,7 @@ int CPU::Cycle()
 	return cycles;
 }
 
-void CPU::CheckInterrupts()
+int CPU::CheckInterrupts()
 {
 	unsigned char IE = m_Mem->ReadU8(0xFFFF);
 	unsigned char IF = m_Mem->ReadU8(0xFF0F);
@@ -227,7 +229,7 @@ void CPU::CheckInterrupts()
 	{
 		m_Halted = false;
 
-		if (m_IME == 0) return;
+		if (m_IME == 0) return 0;
 
 		for (size_t i = 0; i < 5; i++)
 		{
@@ -244,7 +246,10 @@ void CPU::CheckInterrupts()
 				m_PC = 0x40 + 0x08 * i; // Jump to the corresponding handler
 			}
 		}
+		return 5;
 	}
+
+	return 0;
 }
 
 void CPU::SetR8(unsigned char reg, unsigned char value)

@@ -35,8 +35,6 @@ void GameBoy::Update()
         m_Running = cycles == -1;
 
         HandleTimer(cycles);
-
-        m_CPU.CheckInterrupts();
     }
 
     m_CycleCount = 0;

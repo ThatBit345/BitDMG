@@ -403,3 +403,4 @@ log.txt
 # GB Roms
 *.gb
 GameBoy Emulator/log.txt
+*.sav

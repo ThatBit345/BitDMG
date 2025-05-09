@@ -57,7 +57,7 @@ public:
 
 	// Returns number of cycles elapsed (in machine cycles)
 	int Cycle();
-	void CheckInterrupts();
+	int CheckInterrupts();
 
 private:
 	Registers m_Registers;
