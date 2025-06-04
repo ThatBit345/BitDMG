@@ -32,8 +32,12 @@ int CPU::Cycle()
 
 	Log();
 
-	unsigned char opcode = m_Mem->ReadU8(m_PC++);
+	int cycles = 0;
 
+	if (CheckInterrupts() == 5) cycles = 5;
+
+	unsigned char opcode = m_Mem->ReadU8(m_PC++);
+	
 	if(!IsValidOpcode(opcode))
 	{
 		m_PC--;
@@ -45,10 +49,6 @@ int CPU::Cycle()
 		m_PC--;
 		m_HaltBug = false;
 	}
-
-	if (CheckInterrupts() == 5) return 5;
-
-	int cycles = 0;
 
 	// Opcode decoding, method described by Scott Mansell in the website below
 	// https://archive.gbdev.io/salvage/decoding_gbz80_opcodes/Decoding%20Gamboy%20Z80%20Opcodes.html
@@ -211,7 +211,7 @@ int CPU::Cycle()
 	else return UninplementedOpcode(opcode);
 	
 	// Enable interrupts after the instruction (used by the EI instruction)
-	if(m_EnableIME)
+	if(m_EnableIME && opcode != 0xFB)
 	{
 		m_IME = true;
 		m_EnableIME = false;
@@ -225,11 +225,11 @@ int CPU::CheckInterrupts()
 	unsigned char IE = m_Mem->ReadU8(0xFFFF);
 	unsigned char IF = m_Mem->ReadU8(0xFF0F);
 
+	if (m_IME == false) return 0;
+
 	if ((IF & IE) != 0) // Interrupt pending
 	{
 		m_Halted = false;
-
-		if (m_IME == 0) return 0;
 
 		for (size_t i = 0; i < 5; i++)
 		{
@@ -237,11 +237,11 @@ int CPU::CheckInterrupts()
 
 			if(interruptByte == 1)
 			{
-				m_IME = 0;
+				m_IME = false;
 				IF &= ~(0x01 << i); // Invert the byte that caused this interrupt
+				m_Mem->WriteU8Unfiltered(0xFF0F, IF);
 
-				m_SP--;
-				m_Mem->WriteU16(m_SP, m_PC);
+				m_Mem->WriteU16Stack(--m_SP, m_PC);
 				m_SP--; // Adjust for the second write
 				m_PC = 0x40 + 0x08 * i; // Jump to the corresponding handler
 			}
@@ -1054,7 +1054,7 @@ int CPU::CP_a_imm8()
 // Return conditional.
 int CPU::RET_C(unsigned char cond)
 {
-	unsigned short returnAddress = m_Mem->ReadU16(++m_SP);
+	unsigned short returnAddress = m_Mem->ReadU16(m_SP++);
 
 	if (cond == 0 && !m_FlagRegister.zero) // Not zero
 	{
@@ -1088,8 +1088,8 @@ int CPU::RET_C(unsigned char cond)
 // Return.
 int CPU::RET()
 {
+	m_PC = m_Mem->ReadU16(m_SP++);
 	m_SP++;
-	m_PC = m_Mem->ReadU16(m_SP++); 
 
 	return 4;
 }
@@ -1174,7 +1174,7 @@ int CPU::CALL_C_imm16(unsigned char cond)
 		return 3; // Condition false, 3 machine cycles
 	}
 
-	return 6; // Condition false, 6 machine cycles
+	return 6; // Condition true, 6 machine cycles
 }
 
 // Call function.
@@ -1184,8 +1184,7 @@ int CPU::CALL_imm16()
 	unsigned char jumpAddressMsb = m_Mem->ReadU8(m_PC++);
 
 	// Write return address in the stack
-	m_SP--;
-	m_Mem->WriteU16(m_SP, m_PC);
+	m_Mem->WriteU16Stack(--m_SP, m_PC);
 	m_SP--; // Adjust for the second write
 	m_PC = ((unsigned short)jumpAddressMsb << 8) | jumpAddressLsb;
 
@@ -1196,8 +1195,8 @@ int CPU::CALL_imm16()
 int CPU::RST_tgt3(unsigned char tgt)
 {
 	// Write return address in the stack
+	m_Mem->WriteU16Stack(--m_SP, ++m_PC);
 	m_SP--;
-	m_Mem->WriteU16(m_SP, ++m_PC);
 
 	m_PC = (unsigned short)tgt;
 
@@ -1207,7 +1206,8 @@ int CPU::RST_tgt3(unsigned char tgt)
 // Pop stack to register r16. (Includes AF)
 int CPU::POP_r16(unsigned char reg)
 {
-	unsigned short value = m_Mem->ReadU16(++m_SP);
+	unsigned short value = m_Mem->ReadU16(m_SP++);
+	m_SP++;
 
 	switch (reg)
 	{
@@ -1228,32 +1228,28 @@ int CPU::POP_r16(unsigned char reg)
 		break;
 	}
 
-	m_SP++;
-
 	return 3;
 }
 
 // Push register r16 into stack. (Includes AF)
 int CPU::PUSH_r16(unsigned char reg)
 {
-	m_SP--;
-
 	switch (reg)
 	{
 	case 0:
-		m_Mem->WriteU16(m_SP, GetBC());
+		m_Mem->WriteU16Stack(--m_SP, GetBC());
 		break;
 
 	case 1:
-		m_Mem->WriteU16(m_SP, GetDE());
+		m_Mem->WriteU16Stack(--m_SP, GetDE());
 		break;
 
 	case 2:
-		m_Mem->WriteU16(m_SP, GetHL());
+		m_Mem->WriteU16Stack(--m_SP, GetHL());
 		break;
 
 	case 3:
-		m_Mem->WriteU16(m_SP, GetAF());
+		m_Mem->WriteU16Stack(--m_SP, GetAF());
 		break;
 	}
 	
@@ -1298,7 +1294,8 @@ int CPU::LD_imm16_a()
 // Load from address C + 0xFF00 into register A.
 int CPU::LDH_a_c()
 {
-	unsigned short address = m_Registers.c + 0xFF00;
+	unsigned char offset = 0xFF;
+	unsigned short address = ((unsigned short)offset << 8) | m_Registers.c;
 	m_Registers.a = m_Mem->ReadU8(address);
 
 	return 2;
@@ -1307,7 +1304,10 @@ int CPU::LDH_a_c()
 // Load from address imm8 + 0xFF00 into register A.
 int CPU::LDH_a_imm8()
 {
-	unsigned short address = m_Mem->ReadU8(m_PC++) + 0xFF00;
+	unsigned char offset = 0xFF;
+	unsigned char immediate = m_Mem->ReadU8(m_PC++);
+
+	unsigned short address = ((unsigned short)offset << 8) | immediate;
 	m_Registers.a = m_Mem->ReadU8(address);
 
 	return 3;
@@ -1329,13 +1329,13 @@ int CPU::LD_a_imm16()
 int CPU::ADD_SP_imm8()
 {
 	signed char immediate = m_Mem->ReadU8(m_PC++);
-	unsigned char result = m_SP + immediate;
+	unsigned short result = m_SP + immediate;
 	m_SP = result;
 
 	m_FlagRegister.zero = false;
 	m_FlagRegister.subtract = false;
-	m_FlagRegister.halfCarry = ((((result - immediate) & 0xF) + (immediate & 0xF)) & 0x10) == 0x10;
-	m_FlagRegister.carry = ((((result - immediate) & 0xF) + (immediate & 0xF)) & 0x10) == 0x100;
+	m_FlagRegister.halfCarry = (((result - immediate & 0xF) + (immediate & 0xF)) & 0x10) == 0x10;
+	m_FlagRegister.carry = (((result - immediate & 0xFF) + (immediate & 0xFF)) & 0x100) == 0x100;
 
 	return 4;
 }
@@ -1344,13 +1344,13 @@ int CPU::ADD_SP_imm8()
 int CPU::LD_HL_SLimm8()
 {
 	signed char immediate = m_Mem->ReadU8(m_PC++);
-	unsigned char result = m_SP + immediate;
+	unsigned short result = m_SP + immediate;
 	SetHL(result);
 
 	m_FlagRegister.zero = false;
 	m_FlagRegister.subtract = false;
-	m_FlagRegister.halfCarry = (((m_SP - immediate & 0xF) - (immediate & 0xF)) & 0x10) == 0x10;
-	m_FlagRegister.carry = (((m_SP - immediate & 0xF) - (immediate & 0xF)) & 0x10) == 0x100;
+	m_FlagRegister.halfCarry = (((m_SP & 0xF) + (immediate & 0xF)) & 0x10) == 0x10;
+	m_FlagRegister.carry = (((m_SP & 0xFF) + (immediate & 0xFF)) & 0x100) == 0x100;
 
 	return 3;
 }

@@ -23,10 +23,12 @@ public:
 	Cartridge(const char* romPath);
 
 	inline bool IsValid() { return m_IsValid; }
+	inline Mapper GetMapper() { return m_Hardware.mapper; }
+
 	unsigned char ReadU8(int address);
 	unsigned short ReadU16(int address);
+
 	void CheckROMWrite(int address, unsigned char value);
-	inline Mapper GetMapper() { return m_Hardware.mapper; }
 
 private:
 	std::vector<unsigned char> m_Rom;

@@ -56,7 +56,7 @@ Memory::Memory(std::shared_ptr<Cartridge> cart) : m_Cartridge(cart)
 	m_Memory[0xFFFF] = 0x00; //IE
 }
 
-unsigned char Memory::ReadU8(int address)
+unsigned char Memory::ReadU8(unsigned short address)
 {
 	if (address <= 0x7FFF)
 	{
@@ -66,11 +66,11 @@ unsigned char Memory::ReadU8(int address)
 	return m_Memory[address];
 }
 
-void Memory::WriteU8(int address, unsigned char value)
+void Memory::WriteU8(unsigned short address, unsigned char value)
 {
 	// If writting in rom check for mapper registers
 	if (address <= 0x7FFF) m_Cartridge->CheckROMWrite(address, value);
-	else if (address == 0xFF01) Log::LogInfo((char*)&value); // Log serial output
+	else if (address == 0xFF01) Log::LogInfo((char*)&value); // Trap serial output and log it
 	else if (address >= 0xC000 && address <= 0xDDFF)
 	{
 		m_Memory[address] = value;
@@ -80,7 +80,7 @@ void Memory::WriteU8(int address, unsigned char value)
 	else m_Memory[address] = value;
 }
 
-void Memory::WriteU8Unfiltered(int address, unsigned char value)
+void Memory::WriteU8Unfiltered(unsigned short address, unsigned char value)
 {
 	m_Memory[address] = value; 
 	
@@ -90,7 +90,7 @@ void Memory::WriteU8Unfiltered(int address, unsigned char value)
 	}
 }
 
-unsigned short Memory::ReadU16(int address)
+unsigned short Memory::ReadU16(unsigned short address)
 {
 	if (address <= 0x7FFF)
 	{
@@ -104,7 +104,7 @@ unsigned short Memory::ReadU16(int address)
 	return ((unsigned short)msb << 8) | lsb;
 }
 
-void Memory::WriteU16(int address, unsigned short value)
+void Memory::WriteU16(unsigned short address, unsigned short value)
 {
 	unsigned char lsb = (unsigned char)value;
 	unsigned char msb = (unsigned char)(value >> 8);
@@ -124,7 +124,7 @@ void Memory::WriteU16(int address, unsigned short value)
 	}
 }
 
-void Memory::WriteU16(int address, unsigned char lsb, unsigned char msb)
+void Memory::WriteU16(unsigned short address, unsigned char lsb, unsigned char msb)
 {
 	// No writting in ROM
 	if (address <= 0x7FFF) return;
@@ -141,7 +141,7 @@ void Memory::WriteU16(int address, unsigned char lsb, unsigned char msb)
 	}
 }
 
-void Memory::WriteU16Unfiltered(int address, unsigned char value)
+void Memory::WriteU16Unfiltered(unsigned short address, unsigned char value)
 {
 	unsigned char lsb = (unsigned char)value;
 	unsigned char msb = (unsigned char)(value >> 8);
@@ -153,5 +153,25 @@ void Memory::WriteU16Unfiltered(int address, unsigned char value)
 	{
 		m_Memory[address + 0x2000] = lsb; // Write to echo RAM
 		m_Memory[address + 0x2001] = msb; // Write to echo RAM
+	}
+}
+
+void Memory::WriteU16Stack(unsigned short address, unsigned short value)
+{
+	unsigned char lsb = (unsigned char)value;
+	unsigned char msb = (unsigned char)(value >> 8);
+
+	// No writting in ROM
+	if (address <= 0x7FFF) return;
+	else if (address >= 0xC000 && address <= 0xDDFF)
+	{
+		m_Memory[address] = msb;
+		m_Memory[address - 1] = lsb;
+		m_Memory[address + 0x2000] = msb; // Write to echo RAM
+		m_Memory[address - 0x2001] = lsb; // Write to echo RAM
+	}
+	else {
+		m_Memory[address] = msb;
+		m_Memory[address - 1] = lsb;
 	}
 }

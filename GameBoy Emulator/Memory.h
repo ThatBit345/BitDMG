@@ -9,14 +9,15 @@ class Memory
 public:
 	Memory(std::shared_ptr<Cartridge> cart);
 
-	unsigned char ReadU8(int address);
-	void WriteU8(int address, unsigned char value);
-	void WriteU8Unfiltered(int address, unsigned char value);
+	unsigned char ReadU8(unsigned short address);
+	void WriteU8(unsigned short address, unsigned char value);
+	void WriteU8Unfiltered(unsigned short address, unsigned char value);
 
-	unsigned short ReadU16(int address);
-	void WriteU16(int address, unsigned short value);
-	void WriteU16(int address, unsigned char lsb, unsigned char msb);
-	void WriteU16Unfiltered(int address, unsigned char value);
+	unsigned short ReadU16(unsigned short address);
+	void WriteU16(unsigned short address, unsigned short value);
+	void WriteU16(unsigned short address, unsigned char lsb, unsigned char msb);
+	void WriteU16Unfiltered(unsigned short address, unsigned char value);
+	void WriteU16Stack(unsigned short address, unsigned short value);
 
 private:
 	std::array<unsigned char, 0x10000> m_Memory;

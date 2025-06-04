@@ -85,14 +85,14 @@ void GameBoy::HandleTimer(int mCycles)
 
         if(m_TimerCycles > freq)
         {
-            unsigned char timer = m_Memory->ReadU8(0xFF05);
+            unsigned char TIMA = m_Memory->ReadU8(0xFF05);
 
-            if(timer == 0xFF) // Request interrupt
+            if(TIMA == 0xFF) // Request interrupt
             {
                 m_Memory->WriteU8Unfiltered(0xFF05, m_Memory->ReadU8(0xFF06));
                 m_Memory->WriteU8Unfiltered(0xFF0F, m_Memory->ReadU8(0xFF0F) | 0x4);
             }
-            else m_Memory->WriteU8Unfiltered(0xFF05, timer + 1);
+            else m_Memory->WriteU8Unfiltered(0xFF05, TIMA + 1);
         }
     }
 }
