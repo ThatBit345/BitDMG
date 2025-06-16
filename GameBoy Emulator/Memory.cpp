@@ -70,7 +70,7 @@ void Memory::WriteU8(unsigned short address, unsigned char value)
 {
 	// If writting in rom check for mapper registers
 	if (address <= 0x7FFF) m_Cartridge->CheckROMWrite(address, value);
-	else if (address == 0xFF01) Log::LogInfo((char*)&value); // Trap serial output and log it
+	else if (address == 0xFF01) Log::LogCustom((char*)&value, "SERIAL OUT"); // Trap serial output and log it
 	else if (address >= 0xC000 && address <= 0xDDFF)
 	{
 		m_Memory[address] = value;
@@ -118,7 +118,8 @@ void Memory::WriteU16(unsigned short address, unsigned short value)
 		m_Memory[address + 0x2000] = lsb; // Write to echo RAM
 		m_Memory[address + 0x2001] = msb; // Write to echo RAM
 	}
-	else {
+	else 
+	{
 		m_Memory[address] = lsb;
 		m_Memory[address + 1] = msb;
 	}

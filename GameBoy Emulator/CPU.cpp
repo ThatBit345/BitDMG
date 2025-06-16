@@ -37,14 +37,14 @@ int CPU::Cycle()
 	if (CheckInterrupts() == 5) cycles = 5;
 
 	unsigned char opcode = m_Mem->ReadU8(m_PC++);
-	
-	if(!IsValidOpcode(opcode))
+
+	if (!IsValidOpcode(opcode))
 	{
 		m_PC--;
 		return false;
 	}
 
-	if(m_HaltBug) // Hardware bug where the byte at PC is read twice
+	if (m_HaltBug) // Hardware bug where the byte at PC is read twice
 	{
 		m_PC--;
 		m_HaltBug = false;
@@ -62,7 +62,7 @@ int CPU::Cycle()
 	unsigned char p = (opcode & 0b00110000) >> 4;
 	bool q = (opcode & 0b00001000) >> 3;
 
-	if(opcode == 0xCB)
+	if (opcode == 0xCB)
 	{
 		opcode = m_Mem->ReadU8(m_PC++);
 
@@ -88,9 +88,9 @@ int CPU::Cycle()
 		else if (block == 3) SET(y, z);
 		else return UninplementedOpcode(opcode);
 	}
-	else if(block == 0)
+	else if (block == 0)
 	{
-		if(z == 0)
+		if (z == 0)
 		{
 			if (y == 0) NOP();
 			else if (y == 1) LD_imm16_SP();
@@ -98,28 +98,28 @@ int CPU::Cycle()
 			else if (y == 3) JR_s8();
 			else JR_C(y - 4);
 		}
-		else if(z == 1)
+		else if (z == 1)
 		{
 			if (q == 0) LD_r16_imm16(p);
 			else if (q == 1) ADD_HL_r16(p);
 			else return UninplementedOpcode(opcode);
 		}
-		else if(z == 2)
+		else if (z == 2)
 		{
 			if (q == 0) LD_r16_a(p);
 			else if (q == 1) LD_a_r16(p);
 			else return UninplementedOpcode(opcode);
 		}
-		else if(z == 3)
+		else if (z == 3)
 		{
 			if (q == 0) INC_r16(p);
 			else if (q == 1) DEC_r16(p);
 			else return UninplementedOpcode(opcode);
 		}
-		else if(z == 4) INC_r8(y);
-		else if(z == 5) DEC_r8(y);
-		else if(z == 6) LD_r8_imm8(y);
-		else if(z == 7)
+		else if (z == 4) INC_r8(y);
+		else if (z == 5) DEC_r8(y);
+		else if (z == 6) LD_r8_imm8(y);
+		else if (z == 7)
 		{
 			if (y == 0) RLCA();
 			else if (y == 1) RRCA();
@@ -190,7 +190,7 @@ int CPU::Cycle()
 		else if (z == 5)
 		{
 			if (q == 0) PUSH_r16(p);
-			else if(y == 1) CALL_imm16();
+			else if (y == 1) CALL_imm16();
 			else return UninplementedOpcode(opcode);
 		}
 		else if (z == 6)
@@ -209,9 +209,9 @@ int CPU::Cycle()
 		else return UninplementedOpcode(opcode);
 	}
 	else return UninplementedOpcode(opcode);
-	
+
 	// Enable interrupts after the instruction (used by the EI instruction)
-	if(m_EnableIME && opcode != 0xFB)
+	if (m_EnableIME && opcode != 0xFB)
 	{
 		m_IME = true;
 		m_EnableIME = false;
@@ -235,7 +235,7 @@ int CPU::CheckInterrupts()
 		{
 			bool interruptByte = (IF >> i) & 0x01;
 
-			if(interruptByte == 1)
+			if (interruptByte == 1)
 			{
 				m_IME = false;
 				IF &= ~(0x01 << i); // Invert the byte that caused this interrupt
@@ -541,7 +541,7 @@ int CPU::LD_imm16_SP()
 	unsigned char lsb = m_Mem->ReadU8(m_PC++);
 	unsigned char msb = m_Mem->ReadU8(m_PC++);
 
-	unsigned short address = ((unsigned short)lsb << 8) | msb;
+	unsigned short address = ((unsigned short)msb << 8) | lsb;
 
 	m_Mem->WriteU16(address, m_SP);
 
@@ -568,12 +568,15 @@ int CPU::ADD_HL_r16(unsigned char reg)
 	unsigned short val = GetR16(reg);
 
 	unsigned short result = GetHL() + val;
-	SetHL(result);
 
 	// Set flags
 	m_FlagRegister.subtract = false;
 	m_FlagRegister.halfCarry = ((((result - val) & 0xFFF) + (val & 0xFFF)) & 0x1000) == 0x1000;
-	m_FlagRegister.carry = ((((result - val) & 0xFFF) + (val & 0xFFF)) & 0x1000) == 0x10000;
+	//m_FlagRegister.carry = ((((result - val) & 0xFFFF) + (val & 0xFFFF)) & 0x10000) == 0x10000;
+	int iVal = val;
+	m_FlagRegister.carry = (GetHL() + val) > 0xFFFF;
+
+	SetHL(result);
 
 	return 2;
 }
@@ -684,12 +687,12 @@ int CPU::DAA()
 	unsigned char a = m_Registers.a;
 	unsigned char offset = 0x00;
 
-	if((m_FlagRegister.subtract == 0 && (a & 0xF) > 0x09) || m_FlagRegister.halfCarry)
+	if ((m_FlagRegister.subtract == 0 && (a & 0xF) > 0x09) || m_FlagRegister.halfCarry)
 	{
 		offset |= 0x06;
 	}
 
-	if((m_FlagRegister.subtract == 0 && a > 0x99) || m_FlagRegister.carry)
+	if ((m_FlagRegister.subtract == 0 && a > 0x99) || m_FlagRegister.carry)
 	{
 		offset |= 0x60;
 		m_FlagRegister.carry = true;
@@ -738,7 +741,7 @@ int CPU::CCF()
 }
 
 // Jump offset
-int CPU::JR_s8() 
+int CPU::JR_s8()
 {
 	signed char offset = m_Mem->ReadU8(m_PC++);
 	m_PC += offset;
@@ -751,7 +754,7 @@ int CPU::JR_C(unsigned char cond)
 {
 	signed char offset = m_Mem->ReadU8(m_PC++);
 
-	if(cond == 0 && !m_FlagRegister.zero) // Not zero
+	if (cond == 0 && !m_FlagRegister.zero) // Not zero
 	{
 		m_PC += offset;
 	}
@@ -919,8 +922,8 @@ int CPU::CP_a_r8(unsigned char reg)
 
 	m_FlagRegister.zero = result == 0;
 	m_FlagRegister.subtract = true;
-	m_FlagRegister.halfCarry = (((m_Registers.a & 0xF) + (GetR8(reg) & 0xF)) & 0x10) == 0x10;
-	m_FlagRegister.carry = (((m_Registers.a & 0xF) + (GetR8(reg) & 0xF)) & 0x10) == 0x100;
+	m_FlagRegister.halfCarry = (((m_Registers.a & 0xF) - (GetR8(reg) & 0xF)) & 0x10) == 0x10;
+	m_FlagRegister.carry = (((m_Registers.a & 0xF) - (GetR8(reg) & 0xF)) & 0x10) == 0x100;
 
 	if (reg == 6) return 2;
 	else return 1;
@@ -932,13 +935,15 @@ int CPU::ADD_a_imm8()
 	unsigned char immediate = m_Mem->ReadU8(m_PC++);
 
 	unsigned char result = m_Registers.a + immediate;
-	m_Registers.a = result;
 
 	m_FlagRegister.zero = result == 0;
 	m_FlagRegister.subtract = false;
 	m_FlagRegister.halfCarry = ((((result - immediate) & 0xF) + (immediate & 0xF)) & 0x10) == 0x10;
-	m_FlagRegister.carry = ((((result - immediate) & 0xF) + (immediate & 0xF)) & 0x10) == 0x100 || result == 0;
 
+	int iImm = immediate;
+	m_FlagRegister.carry = (m_Registers.a + immediate) > 0xFF;
+
+	m_Registers.a = result;
 	return 2;
 }
 
@@ -948,13 +953,15 @@ int CPU::ADC_a_imm8()
 	unsigned char immediate = m_Mem->ReadU8(m_PC++);
 
 	unsigned char result = m_Registers.a + immediate + m_FlagRegister.carry;
-	m_Registers.a = result;
 
 	m_FlagRegister.zero = result == 0;
 	m_FlagRegister.subtract = false;
-	m_FlagRegister.halfCarry = ((((result - immediate - m_FlagRegister.carry) & 0xF) + (immediate + m_FlagRegister.carry & 0xF)) & 0x10) == 0x10;
-	m_FlagRegister.carry = ((((result - immediate - m_FlagRegister.carry) & 0xF) + (immediate + m_FlagRegister.carry & 0xF)) & 0x10) == 0x100 || result == 0;
+	m_FlagRegister.halfCarry = (((m_Registers.a & 0xF) + (immediate & 0xF) + (m_FlagRegister.carry & 0xF)) & 0x10) == 0x10;
 
+	int iImm = immediate;
+	m_FlagRegister.carry = (m_Registers.a + immediate + m_FlagRegister.carry) > 0xFF;
+
+	m_Registers.a = result;
 	return 2;
 }
 
@@ -981,12 +988,13 @@ int CPU::SBC_a_imm8()
 	unsigned char immediate = m_Mem->ReadU8(m_PC++);
 
 	unsigned char result = m_Registers.a - immediate - m_FlagRegister.carry;
-	m_Registers.a = result;
 
 	m_FlagRegister.zero = result == 0;
 	m_FlagRegister.subtract = true;
-	m_FlagRegister.halfCarry = ((((result + immediate + m_FlagRegister.carry) & 0xF) - (immediate - m_FlagRegister.carry & 0xF)) & 0x10) == 0x10;
-	m_FlagRegister.carry = ((((result + immediate + m_FlagRegister.carry) & 0xF) - (immediate - m_FlagRegister.carry & 0xF)) & 0x10) == 0x100 || result == 0;
+	m_FlagRegister.halfCarry = (((m_Registers.a & 0xF) - (immediate & 0xF) - (m_FlagRegister.carry & 0xF)) & 0x10) == 0x10;
+	m_FlagRegister.carry = m_Registers.a < immediate + m_FlagRegister.carry;
+
+	m_Registers.a = result;
 
 	return 2;
 }
@@ -1046,7 +1054,7 @@ int CPU::CP_a_imm8()
 	m_FlagRegister.zero = result == 0;
 	m_FlagRegister.subtract = true;
 	m_FlagRegister.halfCarry = (((m_Registers.a & 0xF) - (immediate & 0xF)) & 0x10) == 0x10;
-	m_FlagRegister.carry = (((m_Registers.a & 0xF) + (immediate & 0xF)) & 0x10) == 0x100;
+	m_FlagRegister.carry = m_Registers.a < immediate;
 
 	return 2;
 }
@@ -1116,7 +1124,7 @@ int CPU::JP_C_imm16(unsigned char cond)
 	{
 		m_PC = jumpAddress;
 	}
-	else if (cond == 2 && m_FlagRegister.carry) // No carry
+	else if (cond == 2 && !m_FlagRegister.carry) // No carry
 	{
 		m_PC = jumpAddress;
 	}
@@ -1160,7 +1168,7 @@ int CPU::CALL_C_imm16(unsigned char cond)
 	{
 		CALL_imm16();
 	}
-	else if (cond == 2 && m_FlagRegister.carry) // No carry
+	else if (cond == 2 && !m_FlagRegister.carry) // No carry
 	{
 		CALL_imm16();
 	}
@@ -1170,7 +1178,7 @@ int CPU::CALL_C_imm16(unsigned char cond)
 	}
 	else
 	{
-		m_PC += 2;
+		m_PC += 2; // Skip the immediate
 		return 3; // Condition false, 3 machine cycles
 	}
 
@@ -1195,10 +1203,10 @@ int CPU::CALL_imm16()
 int CPU::RST_tgt3(unsigned char tgt)
 {
 	// Write return address in the stack
-	m_Mem->WriteU16Stack(--m_SP, ++m_PC);
+	m_Mem->WriteU16Stack(--m_SP, m_PC);
 	m_SP--;
 
-	m_PC = (unsigned short)tgt;
+	m_PC = tgt * 0x8;
 
 	return 4;
 }
@@ -1252,7 +1260,7 @@ int CPU::PUSH_r16(unsigned char reg)
 		m_Mem->WriteU16Stack(--m_SP, GetAF());
 		break;
 	}
-	
+
 	m_SP--;
 
 	return 4;

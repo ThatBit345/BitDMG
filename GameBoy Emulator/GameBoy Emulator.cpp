@@ -14,7 +14,7 @@ int main(int argc, char* argv[])
     std::clog.rdbuf(ofs.rdbuf());
 
     std::filesystem::path romPath;
-    if (argc == 1) romPath = std::filesystem::current_path() / "02-interrupts.gb";
+    if (argc == 1) romPath = std::filesystem::current_path() / "tests" / "07-jr,jp,call,ret,rst.gb";
     else romPath = argv[1];
 
     GameBoy gb = (romPath);
