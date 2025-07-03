@@ -69,6 +69,7 @@ private:
 	bool m_EnableIME;
 	bool m_Halted;
 	bool m_HaltBug;
+	bool m_FirstCycle;
 
 	std::shared_ptr<Memory> m_Mem;
 

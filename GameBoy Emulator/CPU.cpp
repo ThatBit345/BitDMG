@@ -5,7 +5,7 @@
 #include <sstream>
 #include <iomanip>
 
-CPU::CPU(std::shared_ptr<Memory> memory) : m_SP(0xFFFE), m_PC(0x0100), m_Halted(false), m_HaltBug(false)
+CPU::CPU(std::shared_ptr<Memory> memory) : m_SP(0xFFFE), m_PC(0x0100), m_Halted(false), m_HaltBug(false), m_FirstCycle(true)
 {
 	// Mimic state after boot ROM
 	m_Registers.a = 0x01;
@@ -28,13 +28,17 @@ CPU::CPU(std::shared_ptr<Memory> memory) : m_SP(0xFFFE), m_PC(0x0100), m_Halted(
 
 int CPU::Cycle()
 {
-	if (m_Halted) return 0;
-
-	Log();
+	if (m_FirstCycle) 
+	{
+		m_FirstCycle = false;
+		Log();
+	}
 
 	int cycles = 0;
 
 	if (CheckInterrupts() == 5) cycles = 5;
+
+	if (m_Halted) return 0;
 
 	unsigned char opcode = m_Mem->ReadU8(m_PC++);
 
@@ -73,139 +77,139 @@ int CPU::Cycle()
 
 		if (block == 0)
 		{
-			if (y == 0) RLC_r8(z);
-			else if (y == 1) RRC_r8(z);
-			else if (y == 2) RL_r8(z);
-			else if (y == 3) RR_r8(z);
-			else if (y == 4) SLA_r8(z);
-			else if (y == 5) SRA_r8(z);
-			else if (y == 6) SWAP_r8(z);
-			else if (y == 7) SRL_r8(z);
+			if (y == 0) cycles = RLC_r8(z);
+			else if (y == 1) cycles = RRC_r8(z);
+			else if (y == 2) cycles = RL_r8(z);
+			else if (y == 3) cycles = RR_r8(z);
+			else if (y == 4) cycles = SLA_r8(z);
+			else if (y == 5) cycles = SRA_r8(z);
+			else if (y == 6) cycles = SWAP_r8(z);
+			else if (y == 7) cycles = SRL_r8(z);
 			else return UninplementedOpcode(opcode);
 		}
-		else if (block == 1) BIT(y, z);
-		else if (block == 2) RES(y, z);
-		else if (block == 3) SET(y, z);
+		else if (block == 1) cycles = BIT(y, z);
+		else if (block == 2) cycles = RES(y, z);
+		else if (block == 3) cycles = SET(y, z);
 		else return UninplementedOpcode(opcode);
 	}
 	else if (block == 0)
 	{
 		if (z == 0)
 		{
-			if (y == 0) NOP();
-			else if (y == 1) LD_imm16_SP();
-			else if (y == 2) STOP();
-			else if (y == 3) JR_s8();
-			else JR_C(y - 4);
+			if (y == 0) cycles = NOP();
+			else if (y == 1) cycles = LD_imm16_SP();
+			else if (y == 2) cycles = STOP();
+			else if (y == 3) cycles = JR_s8();
+			else cycles = JR_C(y - 4);
 		}
 		else if (z == 1)
 		{
-			if (q == 0) LD_r16_imm16(p);
-			else if (q == 1) ADD_HL_r16(p);
+			if (q == 0) cycles = LD_r16_imm16(p);
+			else if (q == 1) cycles = ADD_HL_r16(p);
 			else return UninplementedOpcode(opcode);
 		}
 		else if (z == 2)
 		{
-			if (q == 0) LD_r16_a(p);
-			else if (q == 1) LD_a_r16(p);
+			if (q == 0) cycles = LD_r16_a(p);
+			else if (q == 1) cycles = LD_a_r16(p);
 			else return UninplementedOpcode(opcode);
 		}
 		else if (z == 3)
 		{
-			if (q == 0) INC_r16(p);
-			else if (q == 1) DEC_r16(p);
+			if (q == 0) cycles = INC_r16(p);
+			else if (q == 1) cycles = DEC_r16(p);
 			else return UninplementedOpcode(opcode);
 		}
-		else if (z == 4) INC_r8(y);
-		else if (z == 5) DEC_r8(y);
-		else if (z == 6) LD_r8_imm8(y);
+		else if (z == 4) cycles = INC_r8(y);
+		else if (z == 5) cycles = DEC_r8(y);
+		else if (z == 6) cycles = LD_r8_imm8(y);
 		else if (z == 7)
 		{
-			if (y == 0) RLCA();
-			else if (y == 1) RRCA();
-			else if (y == 2) RLA();
-			else if (y == 3) RRA();
-			else if (y == 4) DAA();
-			else if (y == 5) CPL();
-			else if (y == 6) SCF();
-			else if (y == 7) CCF();
+			if (y == 0) cycles = RLCA();
+			else if (y == 1) cycles = RRCA();
+			else if (y == 2) cycles = RLA();
+			else if (y == 3) cycles = RRA();
+			else if (y == 4) cycles = DAA();
+			else if (y == 5) cycles = CPL();
+			else if (y == 6) cycles = SCF();
+			else if (y == 7) cycles = CCF();
 			else return UninplementedOpcode(opcode);
 		}
 		else return UninplementedOpcode(opcode);
 	}
 	else if (block == 1)
 	{
-		if (opcode == 0x76) HALT();
-		else LD_r8_r8(y, z);
+		if (opcode == 0x76) cycles = HALT();
+		else cycles = LD_r8_r8(y, z);
 	}
 	else if (block == 2)
 	{
-		if (y == 0) ADD_a_r8(z);
-		else if (y == 1) ADC_a_r8(z);
-		else if (y == 2) SUB_a_r8(z);
-		else if (y == 3) SBC_a_r8(z);
-		else if (y == 4) AND_a_r8(z);
-		else if (y == 5) XOR_a_r8(z);
-		else if (y == 6) OR_a_r8(z);
-		else if (y == 7) CP_a_r8(z);
+		if (y == 0) cycles = ADD_a_r8(z);
+		else if (y == 1) cycles = ADC_a_r8(z);
+		else if (y == 2) cycles = SUB_a_r8(z);
+		else if (y == 3) cycles = SBC_a_r8(z);
+		else if (y == 4) cycles = AND_a_r8(z);
+		else if (y == 5) cycles = XOR_a_r8(z);
+		else if (y == 6) cycles = OR_a_r8(z);
+		else if (y == 7) cycles = CP_a_r8(z);
 		else return UninplementedOpcode(opcode);
 	}
 	else if (block == 3)
 	{
 		if (z == 0)
 		{
-			if (y <= 3) RET_C(y);
-			else if (y == 4) LDH_imm8_a();
-			else if (y == 5) ADD_SP_imm8();
-			else if (y == 6) LDH_a_imm8();
-			else if (y == 7) LD_HL_SLimm8();
+			if (y <= 3) cycles = RET_C(y);
+			else if (y == 4) cycles = LDH_imm8_a();
+			else if (y == 5) cycles = ADD_SP_imm8();
+			else if (y == 6) cycles = LDH_a_imm8();
+			else if (y == 7) cycles = LD_HL_SLimm8();
 			else return UninplementedOpcode(opcode);
 		}
 		else if (z == 1)
 		{
-			if (q == 0) POP_r16(p);
-			else if (y == 1) RET();
-			else if (y == 3) RETI();
-			else if (y == 5) JP_HL();
-			else if (y == 7) LD_SP_HL();
+			if (q == 0) cycles = POP_r16(p);
+			else if (y == 1) cycles = RET();
+			else if (y == 3) cycles = RETI();
+			else if (y == 5) cycles = JP_HL();
+			else if (y == 7) cycles = LD_SP_HL();
 			else return UninplementedOpcode(opcode);
 		}
 		else if (z == 2)
 		{
-			if (y <= 3) JP_C_imm16(y);
-			else if (y == 4) LDH_c_a();
-			else if (y == 5) LD_imm16_a();
-			else if (y == 6) LDH_a_c();
-			else if (y == 7) LD_a_imm16();
+			if (y <= 3) cycles = JP_C_imm16(y);
+			else if (y == 4) cycles = LDH_c_a();
+			else if (y == 5) cycles = LD_imm16_a();
+			else if (y == 6) cycles = LDH_a_c();
+			else if (y == 7) cycles = LD_a_imm16();
 			else return UninplementedOpcode(opcode);
 		}
 		else if (z == 3)
 		{
-			if (y == 0) JP_imm16();
-			else if (y == 6) DI();
-			else if (y == 7) EI();
+			if (y == 0) cycles = JP_imm16();
+			else if (y == 6) cycles = DI();
+			else if (y == 7) cycles = EI();
 			else return UninplementedOpcode(opcode);
 		}
-		else if (z == 4) CALL_C_imm16(y);
+		else if (z == 4) cycles = CALL_C_imm16(y);
 		else if (z == 5)
 		{
-			if (q == 0) PUSH_r16(p);
-			else if (y == 1) CALL_imm16();
+			if (q == 0) cycles = PUSH_r16(p);
+			else if (y == 1) cycles = CALL_imm16();
 			else return UninplementedOpcode(opcode);
 		}
 		else if (z == 6)
 		{
-			if (y == 0) ADD_a_imm8();
-			else if (y == 1) ADC_a_imm8();
-			else if (y == 2) SUB_a_imm8();
-			else if (y == 3) SBC_a_imm8();
-			else if (y == 4) AND_a_imm8();
-			else if (y == 5) XOR_a_imm8();
-			else if (y == 6) OR_a_imm8();
-			else if (y == 7) CP_a_imm8();
+			if (y == 0) cycles = ADD_a_imm8();
+			else if (y == 1) cycles = ADC_a_imm8();
+			else if (y == 2) cycles = SUB_a_imm8();
+			else if (y == 3) cycles = SBC_a_imm8();
+			else if (y == 4) cycles = AND_a_imm8();
+			else if (y == 5) cycles = XOR_a_imm8();
+			else if (y == 6) cycles = OR_a_imm8();
+			else if (y == 7) cycles = CP_a_imm8();
 			else return UninplementedOpcode(opcode);
 		}
-		else if (z == 7) RST_tgt3(y);
+		else if (z == 7) cycles = RST_tgt3(y);
 		else return UninplementedOpcode(opcode);
 	}
 	else return UninplementedOpcode(opcode);
@@ -217,6 +221,7 @@ int CPU::Cycle()
 		m_EnableIME = false;
 	}
 
+	Log();
 	return cycles;
 }
 
@@ -225,11 +230,12 @@ int CPU::CheckInterrupts()
 	unsigned char IE = m_Mem->ReadU8(0xFFFF);
 	unsigned char IF = m_Mem->ReadU8(0xFF0F);
 
-	if (m_IME == false) return 0;
-
 	if ((IF & IE) != 0) // Interrupt pending
 	{
 		m_Halted = false;
+
+		// If master enable is disabled, do not handle the interrupt
+		if (m_IME == false) return 0;
 
 		for (size_t i = 0; i < 5; i++)
 		{
@@ -237,6 +243,10 @@ int CPU::CheckInterrupts()
 
 			if (interruptByte == 1)
 			{
+				std::string logStr = "Interrupt requested, type: ";
+				logStr += std::to_string(i);
+				Log::LogCustom(logStr.c_str(), "CPU");
+
 				m_IME = false;
 				IF &= ~(0x01 << i); // Invert the byte that caused this interrupt
 				m_Mem->WriteU8Unfiltered(0xFF0F, IF);
@@ -623,13 +633,15 @@ int CPU::LD_r8_imm8(unsigned char reg)
 // Rotate A to the left (circular)
 int CPU::RLCA()
 {
+	bool wasZero = m_Registers.a == 0;
+
 	// Store the right-most byte and add it later to the shifted number
 	unsigned char carryByte = (m_Registers.a & 0b10000000) >> 7;
 	m_Registers.a = m_Registers.a << 1;
 	m_Registers.a |= carryByte;
 
 	m_FlagRegister.reset();
-	m_FlagRegister.zero = m_Registers.a == 0;
+	m_FlagRegister.zero = m_Registers.a == 0 && !wasZero;
 	m_FlagRegister.carry = carryByte;
 
 	return 1;
@@ -638,13 +650,15 @@ int CPU::RLCA()
 // Rotate A to the right (circular)
 int CPU::RRCA()
 {
+	bool wasZero = m_Registers.a == 0;
+
 	// Store the left-most byte and add it later to the shifted number
 	unsigned char carryByte = (m_Registers.a & 0b00000001);
 	m_Registers.a = m_Registers.a >> 1;
 	m_Registers.a |= (carryByte << 7);
 
 	m_FlagRegister.reset();
-	m_FlagRegister.zero = m_Registers.a == 0;
+	m_FlagRegister.zero = m_Registers.a == 0 && !wasZero;
 	m_FlagRegister.carry = carryByte;
 
 	return 1;
@@ -653,13 +667,15 @@ int CPU::RRCA()
 // Rotate A to the left THROUGH the carry flag
 int CPU::RLA()
 {
+	bool wasZero = m_Registers.a == 0;
+
 	unsigned char oldCarry = m_FlagRegister.carry;
 	unsigned char carryByte = (m_Registers.a & 0b10000000);
-	m_Registers.a = m_Registers.a >> 1;
+	m_Registers.a = m_Registers.a << 1;
 	m_Registers.a |= oldCarry;
 
 	m_FlagRegister.reset();
-	m_FlagRegister.zero = m_Registers.a == 0;
+	//m_FlagRegister.zero = m_Registers.a == 0 && !wasZero;
 	m_FlagRegister.carry = carryByte;
 
 	return 1;
@@ -781,7 +797,8 @@ int CPU::JR_C(unsigned char cond)
 // Enter CPU very low power mode.
 int CPU::STOP()
 {
-	UninplementedOpcode(0x10);
+	Log::LogCustom("STOP CALLED", "CPU");
+	//UninplementedOpcode(0x10);
 	return 1;
 }
 
@@ -815,11 +832,11 @@ int CPU::ADD_a_r8(unsigned char reg)
 
 	m_FlagRegister.zero = result == 0;
 	m_FlagRegister.subtract = false;
-	//m_FlagRegister.halfCarry = ((result & 0x00001000) >> 3) == 0;
-	//m_FlagRegister.carry = ((result & 0x10000000) >> 7) == 0;
-	m_FlagRegister.halfCarry = ((((result - GetR8(reg)) & 0xF) + (GetR8(reg) & 0xF)) & 0x10) == 0x10;
-	m_FlagRegister.carry = ((((result - GetR8(reg)) & 0xF) + (GetR8(reg) & 0xF)) & 0x10) == 0x100;
+	m_FlagRegister.halfCarry = (((m_Registers.a & 0xF) + (GetR8(reg) & 0xF)) & 0x10) == 0x10;
 
+	m_FlagRegister.carry = (m_Registers.a + GetR8(reg)) > 0xFF;
+
+	m_Registers.a = result;
 	if (reg == 6) return 2;
 	else return 1;
 }
@@ -831,11 +848,12 @@ int CPU::ADC_a_r8(unsigned char reg)
 
 	m_FlagRegister.zero = result == 0;
 	m_FlagRegister.subtract = false;
-	//m_FlagRegister.halfCarry = ((result & 0x00001000) >> 3) == 0;
-	//m_FlagRegister.carry = ((result & 0x10000000) >> 7) == 0;
-	m_FlagRegister.halfCarry = ((((result - GetR8(reg) - m_FlagRegister.carry) & 0xF) + (GetR8(reg) - m_FlagRegister.carry & 0xF)) & 0x10) == 0x10;
-	m_FlagRegister.carry = ((((result - GetR8(reg)) - m_FlagRegister.carry & 0xF) + (GetR8(reg) - m_FlagRegister.carry & 0xF)) & 0x10) == 0x100;
+	m_FlagRegister.halfCarry = (((m_Registers.a & 0xF) + (GetR8(reg) & 0xF) + (m_FlagRegister.carry & 0xF)) & 0x10) == 0x10;
 
+	int iImm = GetR8(reg);
+	m_FlagRegister.carry = (m_Registers.a + iImm + m_FlagRegister.carry) > 0xFF;
+
+	m_Registers.a = result;
 	if (reg == 6) return 2;
 	else return 1;
 }
@@ -853,6 +871,7 @@ int CPU::SUB_a_r8(unsigned char reg)
 	//m_FlagRegister.carry = ((result & 0x10000000) >> 7) == 0;
 	m_FlagRegister.halfCarry = ((((result + GetR8(reg)) & 0xF) - (GetR8(reg) & 0xF)) & 0x10) == 0x10;
 
+	m_Registers.a = result;
 	if (reg == 6) return 2;
 	else return 1;
 }
@@ -864,11 +883,10 @@ int CPU::SBC_a_r8(unsigned char reg)
 
 	m_FlagRegister.zero = result == 0;
 	m_FlagRegister.subtract = true;
-	//m_FlagRegister.halfCarry = ((result & 0x00001000) >> 3) == 0;
-	//m_FlagRegister.carry = ((result & 0x10000000) >> 7) == 0;
-	m_FlagRegister.halfCarry = ((((result + GetR8(reg) + m_FlagRegister.carry) & 0xF) - (GetR8(reg) + m_FlagRegister.carry & 0xF)) & 0x10) == 0x10;
-	m_FlagRegister.carry = ((((result + GetR8(reg) + m_FlagRegister.carry) & 0xF) - (GetR8(reg) - m_FlagRegister.carry & 0xF)) & 0x10) == 0x100 || result == 0;
+	m_FlagRegister.halfCarry = (((m_Registers.a & 0xF) - (GetR8(reg) & 0xF) - (m_FlagRegister.carry & 0xF)) & 0x10) == 0x10;
+	m_FlagRegister.carry = m_Registers.a < GetR8(reg) + m_FlagRegister.carry;
 
+	m_Registers.a = result;
 	if (reg == 6) return 2;
 	else return 1;
 }
@@ -923,7 +941,7 @@ int CPU::CP_a_r8(unsigned char reg)
 	m_FlagRegister.zero = result == 0;
 	m_FlagRegister.subtract = true;
 	m_FlagRegister.halfCarry = (((m_Registers.a & 0xF) - (GetR8(reg) & 0xF)) & 0x10) == 0x10;
-	m_FlagRegister.carry = (((m_Registers.a & 0xF) - (GetR8(reg) & 0xF)) & 0x10) == 0x100;
+	m_FlagRegister.carry = m_Registers.a < GetR8(reg);
 
 	if (reg == 6) return 2;
 	else return 1;
@@ -1431,7 +1449,7 @@ int CPU::RL_r8(unsigned char reg)
 
 	unsigned char oldCarry = m_FlagRegister.carry;
 	unsigned char carryByte = (value & 0b10000000);
-	value = value >> 1;
+	value = value << 1;
 	value |= oldCarry;
 
 	SetR8(reg, value);
@@ -1512,6 +1530,9 @@ int CPU::SWAP_r8(unsigned char reg)
 
 	value = (lower << 4) | (upper >> 4);
 	SetR8(reg, value);
+
+	m_FlagRegister.reset();
+	m_FlagRegister.zero = value == 0;
 
 	if (reg == 6) return 4;
 	else return 2;

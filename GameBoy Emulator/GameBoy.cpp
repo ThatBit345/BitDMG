@@ -6,6 +6,8 @@
 
 GameBoy::GameBoy(std::filesystem::path romPath) : m_CPU(nullptr), m_Valid(true), m_Running(true), m_CycleCount(0), m_DividerCycles(0), m_TimerCycles(0)
 {
+    Log::LogInfo("BitBoy v0.0.1");
+
     if (romPath.empty())
     {
         Log::LogError("File not found!");
@@ -28,16 +30,15 @@ GameBoy::GameBoy(std::filesystem::path romPath) : m_CPU(nullptr), m_Valid(true),
 
 void GameBoy::Update()
 {
-    m_CPU.Cycle();
-    //while(m_CycleCount < MAX_CYCLES)
-    //{
-    //    int cycles = m_CPU.Cycle();
-    //    m_CycleCount += cycles * 4; // Transform M-Cycles to Clock Cycles
-    //    m_Running = cycles == -1;
-    //
-    //    HandleTimer(cycles);
-    //}
-    //
+    while(m_CycleCount < MAX_CYCLES)
+    {
+        int cycles = m_CPU.Cycle();
+        m_CycleCount += cycles * 4; // Transform M-Cycles to Clock Cycles
+        m_Running = cycles != -1;
+    
+        HandleTimer(cycles);
+    }
+    
     // DRAW FRAME
 
     m_CycleCount = 0;
@@ -64,7 +65,7 @@ void GameBoy::HandleTimer(int mCycles)
 
     m_TimerCycles += mCycles;
     unsigned char TAC = m_Memory->ReadU8(0xFF07);
-    if ((TAC >> 2) & 0x4) // If timer enabled
+    if ((TAC & 0x4) >> 2) // If timer enabled
     {
         int freq = 256;
         
@@ -94,7 +95,7 @@ void GameBoy::HandleTimer(int mCycles)
             if(TIMA == 0xFF) // Timer overflow
             {
                 m_Memory->WriteU8Unfiltered(0xFF05, m_Memory->ReadU8(0xFF06));       // Reset to what TMA especifies
-                m_Memory->WriteU8Unfiltered(0xFF0F, m_Memory->ReadU8(0xFF0F) | 0x4); // Request interrupt
+                m_Memory->WriteU8Unfiltered(0xFF0F, m_Memory->ReadU8(0xFF0F) | 0b100); // Request interrupt
             }
             else m_Memory->WriteU8Unfiltered(0xFF05, TIMA + 1);
 
