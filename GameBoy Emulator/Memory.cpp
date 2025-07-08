@@ -6,7 +6,7 @@
 
 #include "Log.h"
 
-Memory::Memory(std::shared_ptr<Cartridge> cart) : m_Cartridge(cart)
+Memory::Memory(std::shared_ptr<Cartridge> cart) : m_Cartridge(cart), m_VRAMLocked(false), m_OAMLocked(false)
 {
 	m_Memory.fill(0);
 
@@ -62,7 +62,14 @@ unsigned char Memory::ReadU8(unsigned short address)
 	{
 		return m_Cartridge->ReadU8(address);
 	}
+	else if (address >= 0x8000 && address <= 0x9FFF && m_VRAMLocked) return 0xFF; // VRAM Locked
+	else if (address >= 0xFE00 && address <= 0xFE9F && m_OAMLocked) return 0xFF; // OAM Locked
 	else if (address >= 0xFEA0 && address <= 0xFEFF) return 0xFF; // Prohibited area, returns 0xFF if OAM is blocked, 0x00 otherwise (triggers OAM corruption)
+	return m_Memory[address];
+}
+
+unsigned char Memory::ReadU8Unfiltered(unsigned short address)
+{
 	return m_Memory[address];
 }
 
@@ -77,6 +84,8 @@ void Memory::WriteU8(unsigned short address, unsigned char value)
 		m_Memory[address + 0x2000] = value; // Write to echo RAM
 	}
 	else if (address == 0xFF04) m_Memory[0xFF04] = 0x00; // Trap timer's DIV register
+	else if (address >= 0x8000 && address <= 0x9FFF && m_VRAMLocked) return; // VRAM Locked
+	else if (address >= 0xFE00 && address <= 0xFE9F && m_OAMLocked) return; // OAM Locked
 	else m_Memory[address] = value;
 }
 
@@ -96,6 +105,8 @@ unsigned short Memory::ReadU16(unsigned short address)
 	{
 		return m_Cartridge->ReadU16(address);
 	}
+	else if (address >= 0x8000 && address <= 0x9FFF && m_VRAMLocked) return 0xFFFF; // VRAM Locked
+	else if (address >= 0xFE00 && address <= 0xFE9F && m_OAMLocked) return 0xFFFF; // OAM Locked
 	else if (address >= 0xFEA0 && address <= 0xFEFF) return 0xFFFF; // Prohibited area, returns 0xFF if OAM is blocked, 0x00 otherwise (triggers OAM corruption)
 
 	unsigned char lsb = m_Memory[address];
@@ -111,6 +122,8 @@ void Memory::WriteU16(unsigned short address, unsigned short value)
 
 	// No writting in ROM
 	if (address <= 0x7FFF) return;
+	else if (address >= 0x8000 && address <= 0x9FFF && m_VRAMLocked) return; // VRAM Locked
+	else if (address >= 0xFE00 && address <= 0xFE9F && m_OAMLocked) return; // OAM Locked
 	else if (address >= 0xC000 && address <= 0xDDFF)
 	{
 		m_Memory[address] = lsb;
@@ -129,6 +142,8 @@ void Memory::WriteU16(unsigned short address, unsigned char lsb, unsigned char m
 {
 	// No writting in ROM
 	if (address <= 0x7FFF) return;
+	else if (address >= 0x8000 && address <= 0x9FFF && m_VRAMLocked) return; // VRAM Locked
+	else if (address >= 0xFE00 && address <= 0xFE9F && m_OAMLocked) return; // OAM Locked
 	else if (address >= 0xC000 && address <= 0xDDFF)
 	{
 		m_Memory[address] = lsb;
@@ -164,6 +179,8 @@ void Memory::WriteU16Stack(unsigned short address, unsigned short value)
 
 	// No writting in ROM
 	if (address <= 0x7FFF) return;
+	else if (address >= 0x8000 && address <= 0x9FFF && m_VRAMLocked) return; // VRAM Locked
+	else if (address >= 0xFE00 && address <= 0xFE9F && m_OAMLocked) return; // OAM Locked
 	else if (address >= 0xC000 && address <= 0xDDFF)
 	{
 		m_Memory[address] = msb;
@@ -175,4 +192,24 @@ void Memory::WriteU16Stack(unsigned short address, unsigned short value)
 		m_Memory[address] = msb;
 		m_Memory[address - 1] = lsb;
 	}
+}
+
+void Memory::LockVRAM()
+{
+	//m_VRAMLocked = true;
+}
+
+void Memory::UnlockVRAM()
+{
+	m_VRAMLocked = false;
+}
+
+void Memory::LockOAM()
+{
+	//m_OAMLocked = true;
+}
+
+void Memory::UnlockOAM()
+{
+	m_OAMLocked = false;
 }

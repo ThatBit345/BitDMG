@@ -4,7 +4,7 @@
 
 #include "Log.h"
 
-GameBoy::GameBoy(std::filesystem::path romPath) : m_CPU(nullptr), m_Valid(true), m_Running(true), m_CycleCount(0), m_DividerCycles(0), m_TimerCycles(0)
+GameBoy::GameBoy(std::filesystem::path romPath) : m_CPU(nullptr), m_LCD(nullptr), m_Valid(true), m_Running(true), m_CycleCount(0), m_DividerCycles(0), m_TimerCycles(0)
 {
     Log::LogInfo("BitBoy v0.0.1");
 
@@ -24,22 +24,28 @@ GameBoy::GameBoy(std::filesystem::path romPath) : m_CPU(nullptr), m_Valid(true),
 
     m_Memory = std::make_shared<Memory>(m_Cartridge);
     m_CPU = (m_Memory);
+    m_LCD = (m_Memory);
 
     Log::LogInfo("Emulator started succesfully!");
 }
 
 void GameBoy::Update()
 {
+    static int itCount = 0;
+
     while(m_CycleCount < MAX_CYCLES)
     {
         int cycles = m_CPU.Cycle();
         m_CycleCount += cycles * 4; // Transform M-Cycles to Clock Cycles
         m_Running = cycles != -1;
-    
+
+        m_LCD.Tick(cycles * 4);
         HandleTimer(cycles);
     }
     
-    // DRAW FRAME
+    if(itCount == 10)
+        m_LCD.PrintTiles();
+    itCount++;
 
     m_CycleCount = 0;
 }

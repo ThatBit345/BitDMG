@@ -55,10 +55,18 @@ Cartridge::Cartridge(const char* romPath) : m_ROMBank(1)
 		break;
 
 	case 0x05: // MBC2
+		Log::LogError("Mapper not implemented (MBC2)");
+		m_IsValid = false;
+		return;
+
 		SetHardware(Mapper::MBC2, false, false, false, false, false);
 		break;
 
 	case 0x06: // MBC2 + BATTERY
+		Log::LogError("Mapper not implemented (MBC2)");
+		m_IsValid = false;
+		return;
+
 		SetHardware(Mapper::MBC2, false, true, false, false, false);
 		break;
 
@@ -71,74 +79,146 @@ Cartridge::Cartridge(const char* romPath) : m_ROMBank(1)
 		break;
 
 	case 0x0B: // MMM01
+		Log::LogError("Mapper not implemented (MMM01)");
+		m_IsValid = false;
+		return;
+
 		SetHardware(Mapper::MMM01, false, false, false, false, false);
 		break;
 
 	case 0x0C: // MMM01 + RAM
+		Log::LogError("Mapper not implemented (MMM01)");
+		m_IsValid = false;
+		return;
+
 		SetHardware(Mapper::MMM01, true, false, false, false, false);
 		break;
 
 	case 0x0D: // MMM01 + RAM + BATTERY
+		Log::LogError("Mapper not implemented (MMM01)");
+		m_IsValid = false;
+		return;
+
 		SetHardware(Mapper::MMM01, true, true, false, false, false);
 		break;
 
 	case 0x0F: // MBC3 + BATTERY + TIMER
+		Log::LogError("Mapper not implemented (MBC3)");
+		m_IsValid = false;
+		return;
+
 		SetHardware(Mapper::MBC3, false, true, true, false, false);
 		break;
 
 	case 0x10: // MBC3 + RAM + BATTERY + TIMER
+		Log::LogError("Mapper not implemented (MBC3)");
+		m_IsValid = false;
+		return;
+
 		SetHardware(Mapper::MBC3, true, true, true, false, false);
 		break;
 
 	case 0x11: // MBC3
+		Log::LogError("Mapper not implemented (MBC3)");
+		m_IsValid = false;
+		return;
+
 		SetHardware(Mapper::MBC3, false, false, false, false, false);
 		break;
 
 	case 0x12: // MBC3 + RAM
+		Log::LogError("Mapper not implemented (MBC3)");
+		m_IsValid = false;
+		return;
+
 		SetHardware(Mapper::MBC3, true, false, false, false, false);
 		break;
 
 	case 0x13: // MBC3 + RAM + BATTERY
+		Log::LogError("Mapper not implemented (MBC3)");
+		m_IsValid = false;
+		return;
+
 		SetHardware(Mapper::MBC3, true, true, false, false, false);
 		break;
 
 	case 0x19: // MBC5
+		Log::LogError("Mapper not implemented (MBC5)");
+		m_IsValid = false;
+		return;
+
 		SetHardware(Mapper::MBC5, false, false, false, false, false);
 		break;
 
 	case 0x1A: // MBC5 + RAM
+		Log::LogError("Mapper not implemented (MBC5)");
+		m_IsValid = false;
+		return;
+
 		SetHardware(Mapper::MBC5, true, false, false, false, false);
 		break;
 
 	case 0x1B: // MBC5 + RAM + BATTERY
+		Log::LogError("Mapper not implemented (MBC5)");
+		m_IsValid = false;
+		return;
+
 		SetHardware(Mapper::MBC5, true, true, false, false, false);
 		break;
 
 	case 0x1C: // MBC5 + RUMBLE
+		Log::LogError("Mapper not implemented (MBC5)");
+		m_IsValid = false;
+		return;
+
 		SetHardware(Mapper::MBC5, false, false, false, true, false);
 		break;
 
 	case 0x1D: // MBC5 + RAM + RUMBLE
+		Log::LogError("Mapper not implemented (MBC5)");
+		m_IsValid = false;
+		return;
+
 		SetHardware(Mapper::MBC5, true, false, false, true, false);
 		break;
 
 	case 0x1E: // MBC5 + RAM + BATTERY + RUMBLE
+		Log::LogError("Mapper not implemented (MBC5)");
+		m_IsValid = false;
+		return;
+
 		SetHardware(Mapper::MBC5, true, true, false, true, false);
 		break;
 
 	case 0x20: // MBC6
+		Log::LogError("Mapper not implemented (MBC6)");
+		m_IsValid = false;
+		return;
+
 		SetHardware(Mapper::MBC6, false, false, false, false, false);
 		break;
 
 	case 0x22: // MBC7 + RAM + BATTERY + RUMBLE + SENSOR
+		Log::LogError("Mapper not implemented (MBC7)");
+		m_IsValid = false;
+		return;
+
 		SetHardware(Mapper::MBC7, true, true, false, true, true);
 		break;
 
 	case 0xFE: // HuC3
+		Log::LogError("Mapper not implemented (HuC3)");
+		m_IsValid = false;
+		return;
+
 		SetHardware(Mapper::HuC3, false, false, false, false, false);
 		break;
 
 	case 0xFF: // HuC1 + RAM + BATTERY
+		Log::LogError("Mapper not implemented (HuC1)");
+		m_IsValid = false;
+		return;
+
 		SetHardware(Mapper::HuC1, true, true, false, false, false);
 		break;
 	}

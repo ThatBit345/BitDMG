@@ -6,6 +6,7 @@
 #include "Memory.h"
 #include "Cartridge.h"
 #include "CPU.h"
+#include "PPU.h"
 
 class GameBoy
 {
@@ -20,6 +21,7 @@ private:
 	std::shared_ptr<Memory> m_Memory;
 	std::shared_ptr<Cartridge> m_Cartridge;
 	CPU m_CPU;
+	PPU m_LCD;
 
 	bool m_Valid;
 	bool m_Running;
