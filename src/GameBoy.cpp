@@ -1,17 +1,19 @@
 #include "GameBoy.h"
 
 #include <filesystem>
+#include <SDL3/SDL.h>
 
 #include "Log.h"
 
-GameBoy::GameBoy(std::filesystem::path romPath) : m_CPU(nullptr), m_LCD(nullptr), m_Valid(true), m_Running(true), m_CycleCount(0), m_DividerCycles(0), m_TimerCycles(0)
+GameBoy::GameBoy(std::filesystem::path romPath, SDL_Window* window) : m_CPU(nullptr), m_PPU(nullptr), m_Valid(true), m_Running(true), m_CycleCount(0), m_DividerCycles(0), m_TimerCycles(0)
 {
-    Log::LogInfo("BitBoy v0.0.1");
+    Log::LogInfo("BitBoy v0.1.0");
 
     if (romPath.empty())
     {
-        Log::LogError("File not found!");
+        Log::LogError("ROM file not found!");
         m_Valid = false;
+        return;
     }
 
     m_Cartridge = std::make_shared<Cartridge>(romPath.string().c_str());
@@ -20,18 +22,21 @@ GameBoy::GameBoy(std::filesystem::path romPath) : m_CPU(nullptr), m_LCD(nullptr)
     {
         Log::LogError("Error loading ROM file!");
         m_Valid = false;
+        return;
     }
 
     m_Memory = std::make_shared<Memory>(m_Cartridge);
     m_CPU = (m_Memory);
-    m_LCD = (m_Memory);
+    m_PPU = (m_Memory);
+	m_PPU.ConfigureLCD(window);
 
     Log::LogInfo("Emulator started succesfully!");
 }
 
 void GameBoy::Update()
 {
-    static int itCount = 0;
+	SDL_Time startTime;
+	SDL_GetCurrentTime(&startTime);
 
     while(m_CycleCount < MAX_CYCLES)
     {
@@ -39,15 +44,25 @@ void GameBoy::Update()
         m_CycleCount += cycles * 4; // Transform M-Cycles to Clock Cycles
         m_Running = cycles != -1;
 
-        m_LCD.Tick(cycles * 4);
+        m_PPU.Tick(cycles * 4);
+
         HandleTimer(cycles);
     }
-    
-    if(itCount == 10)
-        m_LCD.PrintTiles();
-    itCount++;
 
+	m_PPU.Render();
     m_CycleCount = 0;
+
+	// Limit FPS to ~60 (Gameboy runs slightly slower than 60Hz)
+	SDL_Time endTime;
+	SDL_GetCurrentTime(&endTime);
+
+	SDL_Time elapsed = endTime - startTime;
+	SDL_Time frameDiff = 17400000 - elapsed;
+
+	if(frameDiff > 0) 
+	{
+		SDL_Delay(frameDiff / 1000000);
+	}
 }
 
 bool GameBoy::IsValid()

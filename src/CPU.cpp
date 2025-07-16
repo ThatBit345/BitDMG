@@ -38,7 +38,8 @@ int CPU::Cycle()
 
 	if (CheckInterrupts() == 5) cycles = 5;
 
-	if (m_Halted) return 0;
+	if (m_Halted) 
+		return 1;
 
 	unsigned char opcode = m_Mem->ReadU8(m_PC++);
 
@@ -241,14 +242,14 @@ int CPU::CheckInterrupts()
 		{
 			bool interruptByte = (IF >> i) & 0x01;
 
-			if (interruptByte == 1)
+			if (interruptByte == true)
 			{
-				std::string logStr = "Interrupt requested, type: ";
-				logStr += std::to_string(i);
-				Log::LogCustom(logStr.c_str(), "CPU");
+				//std::string logStr = "Interrupt requested, type: ";
+				//logStr += std::to_string(i);
+				//Log::LogCustom(logStr.c_str(), "CPU");
 
 				m_IME = false;
-				IF &= ~(0x01 << i); // Invert the byte that caused this interrupt
+				IF &= ~(0b1 << i); // Invert the byte that caused this interrupt
 				m_Mem->WriteU8Unfiltered(0xFF0F, IF);
 
 				m_Mem->WriteU16Stack(--m_SP, m_PC);
@@ -376,6 +377,8 @@ unsigned short CPU::GetR16(unsigned char reg)
 
 void CPU::Log()
 {
+	return;
+
 	std::clog << std::hex << std::uppercase <<
 		"A:" << std::setw(2) << std::setfill('0') << (int)m_Registers.a <<
 		" F:" << std::setw(2) << std::setfill('0') << (int)m_FlagRegister.toU8() <<

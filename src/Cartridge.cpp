@@ -7,6 +7,7 @@
 #include <array>
 
 #include "Log.h"
+#include <cmath>
 
 Cartridge::Cartridge(const char* romPath) : m_ROMBank(1)
 {
