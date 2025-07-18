@@ -260,6 +260,9 @@ Cartridge::Cartridge(const char* romPath) : m_ROMBank(1)
 	this->m_IsValid = true;
 }
 
+/* Return the byte at the address in cartridge ROM (takes into account memory banking)
+*  [address] -> Memory address to access
+*/
 unsigned char Cartridge::ReadU8(int address)
 {
 	if (address >= 0x4000 && m_Hardware.mapper == Mapper::MBC1) // In banked area
@@ -271,6 +274,9 @@ unsigned char Cartridge::ReadU8(int address)
 	return m_Rom[address];
 }
 
+/* Return two bytes starting at the address in cartridge ROM (takes into account memory banking)
+*  [address] -> Memory address to access
+*/
 unsigned short Cartridge::ReadU16(int address)
 {
 	if (address >= 0x4000 && m_Hardware.mapper == Mapper::MBC1) // In banked area
@@ -289,6 +295,10 @@ unsigned short Cartridge::ReadU16(int address)
 	return ((unsigned short)msb << 8) | lsb;
 }
 
+/* Try to write in ROM to access mapper registers.
+*  [address] -> Memory address to write to
+*  [value] -> Value to write at address
+*/
 void Cartridge::CheckROMWrite(int address, unsigned char value)
 {
 	if(m_Hardware.mapper == Mapper::MBC1)
@@ -304,6 +314,8 @@ void Cartridge::CheckROMWrite(int address, unsigned char value)
 	}
 }
 
+/* Set mapper and internal cartridge addons (ram, battery, timer, rumble & sensor).
+*/
 void Cartridge::SetHardware(Mapper mapper, bool ram, bool battery, bool timer, bool rumble, bool sensor)
 {
 	m_Hardware.mapper = mapper;

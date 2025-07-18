@@ -55,7 +55,6 @@ class CPU
 public:
 	CPU(std::shared_ptr<Memory> memory);
 
-	// Returns number of cycles elapsed (in machine cycles)
 	int Cycle();
 	int CheckInterrupts();
 

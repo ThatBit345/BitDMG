@@ -53,6 +53,9 @@ Memory::Memory(std::shared_ptr<Cartridge> cart) : m_Cartridge(cart), m_VRAMLocke
 	m_Memory[0xFFFF] = 0x00; //IE
 }
 
+/* Get 8-bit value.
+*  [address] -> Memory address to read
+*/
 unsigned char Memory::ReadU8(unsigned short address)
 {
 	if (address <= 0x7FFF)
@@ -66,11 +69,18 @@ unsigned char Memory::ReadU8(unsigned short address)
 	return m_Memory[address];
 }
 
+/* Get 8-bit value without considering Gameboy state.
+*  [address] -> Memory address to read
+*/
 unsigned char Memory::ReadU8Unfiltered(unsigned short address)
 {
 	return m_Memory[address];
 }
 
+/* Write 8-bit value.
+*  [address] -> Memory address to write
+*  [value] -> Value to write
+*/
 void Memory::WriteU8(unsigned short address, unsigned char value)
 {
 	// If writting in rom check for mapper registers
@@ -87,6 +97,10 @@ void Memory::WriteU8(unsigned short address, unsigned char value)
 	else m_Memory[address] = value;
 }
 
+/* Write 8-bit value without considering Gameboy state.
+*  [address] -> Memory address to write
+*  [value] -> Value to write
+*/
 void Memory::WriteU8Unfiltered(unsigned short address, unsigned char value)
 {
 	m_Memory[address] = value; 
@@ -97,6 +111,9 @@ void Memory::WriteU8Unfiltered(unsigned short address, unsigned char value)
 	}
 }
 
+/* Get 16-bit value.
+*  [address] -> Memory address to read
+*/
 unsigned short Memory::ReadU16(unsigned short address)
 {
 	if (address <= 0x7FFF)
@@ -113,6 +130,10 @@ unsigned short Memory::ReadU16(unsigned short address)
 	return ((unsigned short)msb << 8) | lsb;
 }
 
+/* Write 16-bit value.
+*  [address] -> Memory address to write
+*  [value] -> Value to write
+*/
 void Memory::WriteU16(unsigned short address, unsigned short value)
 {
 	unsigned char lsb = (unsigned char)value;
@@ -136,6 +157,11 @@ void Memory::WriteU16(unsigned short address, unsigned short value)
 	}
 }
 
+/* Write 8-bit value.
+*  [address] -> Memory address to write
+*  [lsb] -> Least significant bit of the value to write
+*  [msb] -> Most significant bit of the value to write
+*/
 void Memory::WriteU16(unsigned short address, unsigned char lsb, unsigned char msb)
 {
 	// No writting in ROM
@@ -155,6 +181,10 @@ void Memory::WriteU16(unsigned short address, unsigned char lsb, unsigned char m
 	}
 }
 
+/* Write 16-bit value without considering Gameboy state.
+*  [address] -> Memory address to write
+*  [value] -> Value to write
+*/
 void Memory::WriteU16Unfiltered(unsigned short address, unsigned char value)
 {
 	unsigned char lsb = (unsigned char)value;
@@ -170,6 +200,10 @@ void Memory::WriteU16Unfiltered(unsigned short address, unsigned char value)
 	}
 }
 
+/* Write 16-bit value to the stack.
+*  [address] -> Memory address to write
+*  [value] -> Value to write
+*/
 void Memory::WriteU16Stack(unsigned short address, unsigned short value)
 {
 	unsigned char lsb = (unsigned char)value;
