@@ -33,6 +33,14 @@ bool LCD::IsReady()
 	return m_Ready;
 }
 
+/* Set sprites during OAM scan for rendering next scanline.
+*  [sprites] -> Array with the 10 selected sprites
+*/
+void LCD::SetSprites(std::array<int, 10>& sprites)
+{
+	m_Sprites = sprites;
+}
+
 /* Draw scanline to internal surface.
 *  TO-DO: Render sprites & window
 *  [LY] -> Line to render (present at memory address $FF44)
@@ -44,6 +52,7 @@ void LCD::DrawScanline(int LY)
 
 	int x = 0;
 
+	// Draw BG
 	for (unsigned char i = 0; i < 32; i++)
 	{
 		int verticalTile = std::floor(LY / 8.0f);
@@ -90,6 +99,50 @@ void LCD::DrawScanline(int LY)
 			int b = (paletteColor & 0x0000FF);
 
 			SDL_WriteSurfacePixel(m_Surface, x, LY, r, g, b, 0xFF);
+			x++;
+		}
+	}
+
+	// Draw sprites
+	for (int i = 0; i < 10; i++)
+	{
+		// End of array
+		if(m_Sprites[i] == -1) 
+			break;
+
+		int baseAddress = m_Sprites[i];
+
+		// Remove offsets applied to positions in memory
+		int y = m_Mem->ReadU8Unfiltered(baseAddress) - 16;
+		int x = m_Mem->ReadU8Unfiltered(baseAddress + 1) - 8;
+
+		unsigned char tileIndex = m_Mem->ReadU8Unfiltered(baseAddress + 2);
+		unsigned char flags = m_Mem->ReadU8Unfiltered(baseAddress + 3);
+
+		int verticalLine = LY % 8;
+		unsigned char lsb = m_Mem->ReadU8Unfiltered(0x8000 + (verticalLine * 2) + tileIndex * 16);
+		unsigned char msb = m_Mem->ReadU8Unfiltered(0x8000 + (verticalLine * 2) + 1 + tileIndex * 16);
+
+		int paletteBank = (((flags >> 3) & 0b1) == 1) ? 0xFF48 : 0xFF49;
+
+		for (int j = 7; j >= 0; j--)
+		{
+			unsigned char color = 0;
+			color = (((msb >> j) & 0b1) << 1) | ((lsb >> j) & 0b1);
+
+			// Color 0 is used for transparency, ignore it
+			if(color > 0)
+			{
+				int colorIndex = m_Mem->ReadU8(paletteBank);
+				int paletteColor = m_Palette[(colorIndex >> (color * 2)) & 0b11];
+
+				int r = (paletteColor & 0xFF0000) >> 16;
+				int g = (paletteColor & 0x00FF00) >> 8;
+				int b = (paletteColor & 0x0000FF);
+
+				SDL_WriteSurfacePixel(m_Surface, x, LY, r, g, b, 0xFF);
+			}
+
 			x++;
 		}
 	}

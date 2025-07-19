@@ -1,4 +1,5 @@
 #include <memory>
+#include <array>
 #include <SDL3/SDL.h>
 
 #include "Memory.h"
@@ -10,6 +11,8 @@ public:
 
 	void SetWindow(SDL_Window* window);
 	bool IsReady();
+
+	void SetSprites(std::array<int, 10>& sprites);
 
 	void DrawScanline(int LY);
 	void DisableLCD();
@@ -27,6 +30,7 @@ private:
 	SDL_Surface* m_Screen;
 
 	unsigned int m_Palette[4];
+	std::array<int, 10> m_Sprites;
 
 	bool m_Ready;
 };

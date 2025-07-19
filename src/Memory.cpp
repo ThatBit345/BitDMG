@@ -94,6 +94,15 @@ void Memory::WriteU8(unsigned short address, unsigned char value)
 	else if (address == 0xFF04) m_Memory[0xFF04] = 0x00; // Trap timer's DIV register
 	else if (address >= 0x8000 && address <= 0x9FFF && m_VRAMLocked) return; // VRAM Locked
 	else if (address >= 0xFE00 && address <= 0xFE9F && m_OAMLocked) return; // OAM Locked
+	else if (address == 0xFF46) // DMA Transfer
+	{
+		unsigned short source = value * 0x100;
+
+		for (size_t i = 0; i < 159; i++)
+		{
+			m_Memory[0xFE00 + i] = m_Memory[source + i];
+		}
+	}
 	else m_Memory[address] = value;
 }
 
@@ -108,6 +117,15 @@ void Memory::WriteU8Unfiltered(unsigned short address, unsigned char value)
 	if (address >= 0xC000 && address <= 0xDDFF)
 	{
 		m_Memory[address + 0x2000] = value; // Write to echo RAM
+	}
+	else if (address == 0xFF46) // DMA Transfer
+	{
+		unsigned short source = value * 0x100;
+
+		for (size_t i = 0; i < 159; i++)
+		{
+			m_Memory[0xFE00 + i] = m_Memory[source + i];
+		}
 	}
 }
 
