@@ -4,7 +4,7 @@
 
 void Log::LogCustom(const char* txt, const char* header)
 {
-	std::cout << "[" << header << "]" << txt << std::endl;
+	std::cout << "[" << header << "] " << txt << std::endl;
 }
 
 void Log::LogInfo(const char* txt)

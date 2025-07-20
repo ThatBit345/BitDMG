@@ -28,8 +28,9 @@ private:
 	int m_CycleCount;
 	const int MAX_CYCLES = 69905;
 
+	bool m_InputBuffer[8];
+
 	int m_DividerCycles;
 	int m_TimerCycles;
 	void HandleTimer(int cycles);
 };
-

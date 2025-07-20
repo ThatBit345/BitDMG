@@ -25,12 +25,29 @@ public:
 	void LockOAM();
 	void UnlockOAM();
 
+	void UpdateInputState(bool buffer[8]);
+
 private:
 	std::array<unsigned char, 0x10000> m_Memory;
 
 	std::shared_ptr<Cartridge> m_Cartridge;
 
+	bool m_InputBuffer[8];
+	void UpdateInputRegister();
+	void HandleInputInterrupt(bool isButtons);
+
 	bool m_VRAMLocked;
 	bool m_OAMLocked;
 };
 
+enum InputButtons
+{
+	RIGHT = 0,
+	LEFT,
+	UP,
+	DOWN,
+	A,
+	B,
+	SELECT,
+	START
+};
