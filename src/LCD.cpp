@@ -42,26 +42,30 @@ void LCD::SetSprites(std::array<int, 10>& sprites)
 }
 
 /* Draw scanline to internal surface.
-*  TO-DO: Render sprites & window
+*  TO-DO: 8x16 Sprites & render window
 *  [LY] -> Line to render (present at memory address $FF44)
 */
 void LCD::DrawScanline(int LY)
 {
 	unsigned char LCDC = m_Mem->ReadU8(0xFF40);
-	//if(!bgEnabled) return;
+	unsigned char SCY = m_Mem->ReadU8(0xFF42);
+	unsigned char SCX = m_Mem->ReadU8(0xFF43);
 
-	int x = 0;
+	int x = -(SCX % 8);
 
-	// Draw BG
-	for (unsigned char i = 0; i < 32; i++)
+	for (int i = 0; i < 21; i++)
 	{
-		int verticalTile = std::floor(LY / 8.0f);
-		int tilemapAddress = 0x9800;
-		if((LCDC & 0b00001000) != 0) tilemapAddress = 0x9C00;
+		int scrolledY = (SCY + LY) % 256;
+		//int scrolledY = LY;
+		int tileY = std::floor(scrolledY / 8.0f);
+		int verticalLine = (scrolledY % 8);
 
-		unsigned char tileId = m_Mem->ReadU8Unfiltered((tilemapAddress + i) + (32 * verticalTile));
+		int scrolledX = (SCX + (i * 8)) % 256;
+		//int scrolledX = i * 8;
+		int tileX = std::floor(scrolledX / 8.0f);
 
-		int verticalLine = LY % 8;
+		int tilemapAddress = ((LCDC & 0b00001000) != 0) ? 0x9C00 : 0x9800;
+		unsigned char tileId = m_Mem->ReadU8Unfiltered((tilemapAddress + tileX) + (32 * tileY));
 
 		unsigned char lsb;
 		unsigned char msb;
@@ -102,7 +106,7 @@ void LCD::DrawScanline(int LY)
 			x++;
 		}
 	}
-
+	
 	// Draw sprites
 	for (int i = 0; i < 10; i++)
 	{
