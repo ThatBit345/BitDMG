@@ -42,7 +42,7 @@ void LCD::SetSprites(std::array<int, 10> &sprites)
 }
 
 /* Draw scanline to internal surface.
- *  TO-DO: 8x16 Sprites & attributes
+ *  TO-DO: 8x16 Sprites
  *  [LY] -> Line to render (present at memory address $FF44)
  */
 void LCD::DrawScanline(int LY)
@@ -53,6 +53,10 @@ void LCD::DrawScanline(int LY)
 
 	int x = -(SCX % 8);
 
+	std::array<bool, 160> spritePriorityMask;
+	spritePriorityMask.fill(false);
+
+	// Draw BG
 	for (int i = 0; i < 21; i++)
 	{
 		int scrolledY = (SCY + LY) % 256;
@@ -98,6 +102,9 @@ void LCD::DrawScanline(int LY)
 			int colorIndex = m_Mem->ReadU8(0xFF47);
 			int paletteColor = m_Palette[(colorIndex >> (color * 2)) & 0b11];
 
+			if(x > 0 && x < 160 && colorIndex == 0)
+				spritePriorityMask[x] = true;
+
 			int r = (paletteColor & 0xFF0000) >> 16;
 			int g = (paletteColor & 0x00FF00) >> 8;
 			int b = (paletteColor & 0x0000FF);
@@ -107,13 +114,13 @@ void LCD::DrawScanline(int LY)
 		}
 	}
 
+	// Draw window
 	unsigned char WY = m_Mem->ReadU8(0xFF4A);
 	if(LY >= WY && ((LCDC >> 5) & 0b1) == 1)
 	{
 		unsigned char WX = m_Mem->ReadU8(0xFF4B);
 		x = WX - 7;
 
-		// Draw window
 		for (int i = 0; i < 21; i++)
 		{
 			int screenY = LY - WY;
@@ -156,6 +163,9 @@ void LCD::DrawScanline(int LY)
 				int colorIndex = m_Mem->ReadU8(0xFF47);
 				int paletteColor = m_Palette[(colorIndex >> (color * 2)) & 0b11];
 
+				if(x > 0 && x < 160 && colorIndex == 0)
+					spritePriorityMask[x] = true;
+
 				int r = (paletteColor & 0xFF0000) >> 16;
 				int g = (paletteColor & 0x00FF00) >> 8;
 				int b = (paletteColor & 0x0000FF);
@@ -167,11 +177,10 @@ void LCD::DrawScanline(int LY)
 	}
 
 	// Draw sprites, no sprites will be present in the array if they have been disabled (LCDC byte 1)
-	for (int i = 0; i < 10; i++)
+	for (int i = 9; i >= 0; i--)
 	{
-		// End of array
 		if (m_Sprites[i] == -1)
-			break;
+			continue;
 
 		int baseAddress = m_Sprites[i];
 
@@ -181,20 +190,28 @@ void LCD::DrawScanline(int LY)
 
 		unsigned char tileIndex = m_Mem->ReadU8Unfiltered(baseAddress + 2);
 		unsigned char flags = m_Mem->ReadU8Unfiltered(baseAddress + 3);
+		
+		bool yFlip = (flags >> 6) && 0b1 == 1;
+		bool xFlip = (flags >> 5) && 0b1 == 1;
+		bool priority = (flags >> 7) && 0b1 == 1;
 
-		int verticalLine = LY % 8;
+		int verticalLine = yFlip ? std::abs(((LY - y) % 8) - 7) : (LY - y) % 8;
 		unsigned char lsb = m_Mem->ReadU8Unfiltered(0x8000 + (verticalLine * 2) + tileIndex * 16);
 		unsigned char msb = m_Mem->ReadU8Unfiltered(0x8000 + (verticalLine * 2) + 1 + tileIndex * 16);
 
 		int paletteBank = (((flags >> 3) & 0b1) == 1) ? 0xFF48 : 0xFF49;
 
-		for (int j = 7; j >= 0; j--)
+		int pixelIteration = xFlip ? 0 : 7;
+		do
 		{
-			unsigned char color = 0;
-			color = (((msb >> j) & 0b1) << 1) | ((lsb >> j) & 0b1);
+			if(x >= 160 || x < 0) break;
 
+			unsigned char color = 0;
+			color = (((msb >> pixelIteration) & 0b1) << 1) | ((lsb >> pixelIteration) & 0b1);
+
+			bool prioritySkip = priority && spritePriorityMask[x];
 			// Color 0 is used for transparency, ignore it
-			if (color > 0)
+			if (color > 0 && !prioritySkip)
 			{
 				int colorIndex = m_Mem->ReadU8(paletteBank);
 				int paletteColor = m_Palette[(colorIndex >> (color * 2)) & 0b11];
@@ -207,7 +224,11 @@ void LCD::DrawScanline(int LY)
 			}
 
 			x++;
+
+			if(xFlip) pixelIteration++;
+			else pixelIteration--;
 		}
+		while(pixelIteration < 7 && pixelIteration > 0);
 	}
 }
 
