@@ -14,8 +14,8 @@ LCD::LCD(std::shared_ptr<Memory> mem) : m_Ready(false), m_Mem(mem)
 }
 
 /* Set window and create SDL_Surface used for rendering.
-*  [window] -> Window in which to render the Gameboy's LCD
-*/
+ *  [window] -> Window in which to render the Gameboy's LCD
+ */
 void LCD::SetWindow(SDL_Window *window)
 {
 	m_Window = window;
@@ -26,25 +26,25 @@ void LCD::SetWindow(SDL_Window *window)
 }
 
 /* Returns if the LCD is ready for rendering.
-*  (LCD might not be ready because it is missing the window)
-*/
+ *  (LCD might not be ready because it is missing the window)
+ */
 bool LCD::IsReady()
 {
 	return m_Ready;
 }
 
 /* Set sprites during OAM scan for rendering next scanline.
-*  [sprites] -> Array with the 10 selected sprites
-*/
-void LCD::SetSprites(std::array<int, 10>& sprites)
+ *  [sprites] -> Array with the 10 selected sprites
+ */
+void LCD::SetSprites(std::array<int, 10> &sprites)
 {
 	m_Sprites = sprites;
 }
 
 /* Draw scanline to internal surface.
-*  TO-DO: 8x16 Sprites & render window
-*  [LY] -> Line to render (present at memory address $FF44)
-*/
+ *  TO-DO: 8x16 Sprites & attributes
+ *  [LY] -> Line to render (present at memory address $FF44)
+ */
 void LCD::DrawScanline(int LY)
 {
 	unsigned char LCDC = m_Mem->ReadU8(0xFF40);
@@ -56,12 +56,12 @@ void LCD::DrawScanline(int LY)
 	for (int i = 0; i < 21; i++)
 	{
 		int scrolledY = (SCY + LY) % 256;
-		//int scrolledY = LY;
+		// int scrolledY = LY;
 		int tileY = std::floor(scrolledY / 8.0f);
 		int verticalLine = (scrolledY % 8);
 
 		int scrolledX = (SCX + (i * 8)) % 256;
-		//int scrolledX = i * 8;
+		// int scrolledX = i * 8;
 		int tileX = std::floor(scrolledX / 8.0f);
 
 		int tilemapAddress = ((LCDC & 0b00001000) != 0) ? 0x9C00 : 0x9800;
@@ -71,9 +71,9 @@ void LCD::DrawScanline(int LY)
 		unsigned char msb;
 
 		// Take into account tile indexing modes
-		if((LCDC & 0b00010000) == 0)
+		if ((LCDC & 0b00010000) == 0)
 		{
-			if(tileId < 128)
+			if (tileId < 128)
 			{
 				lsb = m_Mem->ReadU8Unfiltered(0x9000 + (verticalLine * 2) + tileId * 16);
 				msb = m_Mem->ReadU8Unfiltered(0x9000 + (verticalLine * 2) + 1 + tileId * 16);
@@ -106,12 +106,71 @@ void LCD::DrawScanline(int LY)
 			x++;
 		}
 	}
-	
-	// Draw sprites
+
+	unsigned char WY = m_Mem->ReadU8(0xFF4A);
+	if(LY >= WY && ((LCDC >> 5) & 0b1) == 1)
+	{
+		unsigned char WX = m_Mem->ReadU8(0xFF4B);
+		x = WX - 7;
+
+		// Draw window
+		for (int i = 0; i < 21; i++)
+		{
+			int screenY = LY - WY;
+			int tileY = std::floor(screenY / 8.0f);
+			int verticalLine = (screenY % 8);
+
+			int tileX = std::floor(x / 8.0f);
+
+			int tilemapAddress = ((LCDC & 0b00001000) != 0) ? 0x9800 : 0x9C00;
+			unsigned char tileId = m_Mem->ReadU8Unfiltered((tilemapAddress + tileX) + (32 * tileY));
+
+			unsigned char lsb;
+			unsigned char msb;
+
+			// Take into account tile indexing modes
+			if ((LCDC & 0b00010000) == 0)
+			{
+				if (tileId < 128)
+				{
+					lsb = m_Mem->ReadU8Unfiltered(0x9000 + (verticalLine * 2) + tileId * 16);
+					msb = m_Mem->ReadU8Unfiltered(0x9000 + (verticalLine * 2) + 1 + tileId * 16);
+				}
+				else
+				{
+					lsb = m_Mem->ReadU8Unfiltered(0x8800 + (verticalLine * 2) + (tileId - 128) * 16);
+					msb = m_Mem->ReadU8Unfiltered(0x8800 + (verticalLine * 2) + 1 + (tileId - 128) * 16);
+				}
+			}
+			else
+			{
+				lsb = m_Mem->ReadU8Unfiltered(0x8000 + (verticalLine * 2) + tileId * 16);
+				msb = m_Mem->ReadU8Unfiltered(0x8000 + (verticalLine * 2) + 1 + tileId * 16);
+			}
+
+			for (int j = 7; j >= 0; j--)
+			{
+				unsigned char color = 0;
+				color = (((msb >> j) & 0b1) << 1) | ((lsb >> j) & 0b1);
+
+				int colorIndex = m_Mem->ReadU8(0xFF47);
+				int paletteColor = m_Palette[(colorIndex >> (color * 2)) & 0b11];
+
+				int r = (paletteColor & 0xFF0000) >> 16;
+				int g = (paletteColor & 0x00FF00) >> 8;
+				int b = (paletteColor & 0x0000FF);
+
+				SDL_WriteSurfacePixel(m_Surface, x, LY, r, g, b, 0xFF);
+				x++;
+			}
+		}
+	}
+
+	// Draw sprites, no sprites will be present in the array if they have been disabled (LCDC byte 1)
 	for (int i = 0; i < 10; i++)
 	{
 		// End of array
-		if(m_Sprites[i] == -1) 
+		if (m_Sprites[i] == -1)
 			break;
 
 		int baseAddress = m_Sprites[i];
@@ -135,7 +194,7 @@ void LCD::DrawScanline(int LY)
 			color = (((msb >> j) & 0b1) << 1) | ((lsb >> j) & 0b1);
 
 			// Color 0 is used for transparency, ignore it
-			if(color > 0)
+			if (color > 0)
 			{
 				int colorIndex = m_Mem->ReadU8(paletteBank);
 				int paletteColor = m_Palette[(colorIndex >> (color * 2)) & 0b11];
@@ -153,25 +212,26 @@ void LCD::DrawScanline(int LY)
 }
 
 /* Set the internal surface's color to #CADC9F, mimicking the Gameboy's background color when disabled.
-*/
+ */
 void LCD::DisableLCD()
 {
 	SDL_FillSurfaceRect(m_Surface, NULL, 0xCADC9F);
 }
 
 /* Blit the internal surface to the window's surface and update it.
-*/
+ */
 void LCD::Render()
 {
-	if(!m_Ready) return;
+	if (!m_Ready)
+		return;
 
-	//ShowTiles();
+	// ShowTiles();
 	SDL_BlitSurfaceScaled(m_Surface, nullptr, m_Screen, nullptr, SDL_SCALEMODE_NEAREST);
 	SDL_UpdateWindowSurface(m_Window);
 }
 
 /* Show tile banks 0-2 on screen (write them to the internal surface).
-*/
+ */
 void LCD::ShowTiles()
 {
 	int x = 0;
@@ -197,13 +257,13 @@ void LCD::ShowTiles()
 			SDL_WriteSurfacePixel(m_Surface, x, y, r, g, b, 0xFF);
 			x++;
 		}
-		
+
 		x -= 8;
 		y++;
-		
-		if(y % 8 == 0)
+
+		if (y % 8 == 0)
 		{
-			if(x == 160)
+			if (x == 160)
 			{
 				// Next row
 				x = 0;

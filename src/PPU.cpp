@@ -116,8 +116,10 @@ void PPU::Tick(int cycles)
 			spriteArray.fill(-1);
 			int currentArrayIndex = 0;
 
-			if(((LCDC >> 1) & 0b1) == true)
-			{ // If sprites are 16 pixels tall, consider that as the Y offset for the check
+			// Get sprites if enabled for this scanline
+			if (((LCDC >> 1) & 0b1) == true)
+			{ 
+				// If sprites are 16 pixels tall, consider that as the Y offset for the check
 				int spriteYOffset = (((LCDC >> 2) & 0b1) == 1) ? 16 : 8;
 
 				// Select 10 sprites for current scanline
