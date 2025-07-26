@@ -63,18 +63,34 @@ unsigned char Memory::ReadU8(unsigned short address)
 		return m_Cartridge->ReadU8(address);
 	}
 	else if (address >= 0x8000 && address <= 0x9FFF && m_VRAMLocked)
-		return 0xFF; // VRAM Locked
+	{
+		// VRAM Locked
+		return 0xFF;
+	}
+	else if (address >= 0xA000 && address <= 0xBFFF)
+	{
+		return m_Cartridge->ReadU8RAM(address);
+	}
 	else if (address >= 0xFE00 && address <= 0xFE9F && m_OAMLocked)
-		return 0xFF; // OAM Locked
+	{
+		// OAM Locked
+		return 0xFF;
+	}
 	else if (address >= 0xFEA0 && address <= 0xFEFF)
-		return 0xFF; // Prohibited area, returns 0xFF if OAM is blocked, 0x00 otherwise (triggers OAM corruption)
+	{
+		// Prohibited area, returns 0xFF if OAM is blocked, 0x00 otherwise (triggers OAM corruption)
+		return 0xFF;
+	}
 	else if (address == 0xFF00)
 	{
 		UpdateInputRegister();
 		return m_Memory[address];
 	}
 	else if (address == 0xFF01)
-		return 0xFF; // Patch serial comms
+	{
+		// Patch serial comms
+		return 0xFF;
+	}
 	return m_Memory[address];
 }
 
@@ -83,6 +99,15 @@ unsigned char Memory::ReadU8(unsigned short address)
  */
 unsigned char Memory::ReadU8Unfiltered(unsigned short address)
 {
+	if (address <= 0x7FFF)
+	{
+		return m_Cartridge->ReadU8(address);
+	}
+	else if (address >= 0xA000 && address <= 0xBFFF)
+	{
+		return m_Cartridge->ReadU8RAM(address);
+	}
+
 	return m_Memory[address];
 }
 
@@ -94,19 +119,35 @@ void Memory::WriteU8(unsigned short address, unsigned char value)
 {
 	// If writting in rom check for mapper registers
 	if (address <= 0x7FFF)
+	{
 		m_Cartridge->CheckROMWrite(address, value);
+	}
+	else if (address >= 0xA000 && address <= 0xBFFF)
+	{
+		m_Cartridge->WriteU8RAM(address, value);
+	}
 	// else if (address == 0xFF01) Log::LogCustom((char*)&value, "SERIAL OUT"); // Trap serial output and log it
 	else if (address >= 0xC000 && address <= 0xDDFF)
 	{
+		// Write to echo RAM
 		m_Memory[address] = value;
-		m_Memory[address + 0x2000] = value; // Write to echo RAM
+		m_Memory[address + 0x2000] = value;
 	}
 	else if (address == 0xFF04)
-		m_Memory[0xFF04] = 0x00; // Trap timer's DIV register
+	{
+		// Trap timer's DIV register
+		m_Memory[0xFF04] = 0x00;
+	}
 	else if (address >= 0x8000 && address <= 0x9FFF && m_VRAMLocked)
-		return; // VRAM Locked
+	{
+		// VRAM Locked
+		return;
+	}
 	else if (address >= 0xFE00 && address <= 0xFE9F && m_OAMLocked)
-		return;					// OAM Locked
+	{
+		// OAM Locked
+		return;
+	}
 	else if (address == 0xFF46) // DMA Transfer
 	{
 		unsigned short source = value * 0x100;
@@ -117,7 +158,9 @@ void Memory::WriteU8(unsigned short address, unsigned char value)
 		}
 	}
 	else
+	{
 		m_Memory[address] = value;
+	}
 }
 
 /* Write 8-bit value without considering Gameboy state.
@@ -128,7 +171,15 @@ void Memory::WriteU8Unfiltered(unsigned short address, unsigned char value)
 {
 	m_Memory[address] = value;
 
-	if (address >= 0xC000 && address <= 0xDDFF)
+	if (address <= 0x7FFF)
+	{
+		m_Cartridge->CheckROMWrite(address, value);
+	}
+	else if (address >= 0xA000 && address <= 0xBFFF)
+	{
+		m_Cartridge->WriteU8RAM(address, value);
+	}
+	else if (address >= 0xC000 && address <= 0xDDFF)
 	{
 		m_Memory[address + 0x2000] = value; // Write to echo RAM
 	}
@@ -153,11 +204,24 @@ unsigned short Memory::ReadU16(unsigned short address)
 		return m_Cartridge->ReadU16(address);
 	}
 	else if (address >= 0x8000 && address <= 0x9FFF && m_VRAMLocked)
-		return 0xFFFF; // VRAM Locked
+	{
+		// VRAM Locked
+		return 0xFFFF;
+	}
+	else if (address >= 0xA000 && address <= 0xBFFF)
+	{
+		return m_Cartridge->ReadU16RAM(address);
+	}
 	else if (address >= 0xFE00 && address <= 0xFE9F && m_OAMLocked)
-		return 0xFFFF; // OAM Locked
+	{
+		// OAM Locked
+		return 0xFFFF;
+	}
 	else if (address >= 0xFEA0 && address <= 0xFEFF)
-		return 0xFFFF; // Prohibited area, returns 0xFF if OAM is blocked, 0x00 otherwise (triggers OAM corruption)
+	{
+		// Prohibited area, returns 0xFF if OAM is blocked, 0x00 otherwise (triggers OAM corruption)
+		return 0xFFFF;
+	}
 
 	unsigned char lsb = m_Memory[address];
 	unsigned char msb = m_Memory[address + 1];
@@ -176,11 +240,23 @@ void Memory::WriteU16(unsigned short address, unsigned short value)
 
 	// No writting in ROM
 	if (address <= 0x7FFF)
+	{
 		return;
+	}
 	else if (address >= 0x8000 && address <= 0x9FFF && m_VRAMLocked)
-		return; // VRAM Locked
+	{
+		// VRAM Locked
+		return;
+	}
+	else if (address >= 0xA000 && address <= 0xBFFF)
+	{
+		m_Cartridge->WriteU16RAM(address, value);
+	}
 	else if (address >= 0xFE00 && address <= 0xFE9F && m_OAMLocked)
-		return; // OAM Locked
+	{
+		// OAM Locked
+		return;
+	}
 	else if (address >= 0xC000 && address <= 0xDDFF)
 	{
 		m_Memory[address] = lsb;
@@ -204,11 +280,23 @@ void Memory::WriteU16(unsigned short address, unsigned char lsb, unsigned char m
 {
 	// No writting in ROM
 	if (address <= 0x7FFF)
+	{
 		return;
+	}
 	else if (address >= 0x8000 && address <= 0x9FFF && m_VRAMLocked)
-		return; // VRAM Locked
+	{
+		// VRAM Locked
+		return;
+	}
+	else if (address >= 0xA000 && address <= 0xBFFF)
+	{
+		m_Cartridge->WriteU16RAM(address, lsb, msb);
+	}
 	else if (address >= 0xFE00 && address <= 0xFE9F && m_OAMLocked)
-		return; // OAM Locked
+	{
+		// OAM Locked
+		return;
+	}
 	else if (address >= 0xC000 && address <= 0xDDFF)
 	{
 		m_Memory[address] = lsb;
@@ -235,7 +323,11 @@ void Memory::WriteU16Unfiltered(unsigned short address, unsigned char value)
 	m_Memory[address] = lsb;
 	m_Memory[address + 1] = msb;
 
-	if (address >= 0xC000 && address <= 0xDDFF)
+	if (address >= 0xA000 && address <= 0xBFFF)
+	{
+		m_Cartridge->WriteU16RAM(address, value);
+	}
+	else if (address >= 0xC000 && address <= 0xDDFF)
 	{
 		m_Memory[address + 0x2000] = lsb; // Write to echo RAM
 		m_Memory[address + 0x2001] = msb; // Write to echo RAM
@@ -314,30 +406,24 @@ void Memory::UpdateInputRegister()
 	{
 		HandleInputInterrupt(false);
 
-		input = 0x20 + (!m_InputBuffer[InputButtons::DOWN] << 3)
-			+ (!m_InputBuffer[InputButtons::UP] << 2) 
-			+ (!m_InputBuffer[InputButtons::LEFT] << 1) 
-			+ (!m_InputBuffer[InputButtons::RIGHT] << 0);
+		input = 0x20 + (!m_InputBuffer[InputButtons::DOWN] << 3) + (!m_InputBuffer[InputButtons::UP] << 2) + (!m_InputBuffer[InputButtons::LEFT] << 1) + (!m_InputBuffer[InputButtons::RIGHT] << 0);
 	}
 	else if (joypad4 && !joypad5) // 4 High & 5 Low -> Buttons
 	{
 		HandleInputInterrupt(true);
 
-		input = 0x10 + (!m_InputBuffer[InputButtons::START] << 3)
-			+ (!m_InputBuffer[InputButtons::SELECT] << 2) 
-			+ (!m_InputBuffer[InputButtons::B] << 1) 
-			+ (!m_InputBuffer[InputButtons::A] << 0);
+		input = 0x10 + (!m_InputBuffer[InputButtons::START] << 3) + (!m_InputBuffer[InputButtons::SELECT] << 2) + (!m_InputBuffer[InputButtons::B] << 1) + (!m_InputBuffer[InputButtons::A] << 0);
 	}
-	//else if (!joypad4 && !joypad5) // 4 Low & 5 Low -> Both
+	// else if (!joypad4 && !joypad5) // 4 Low & 5 Low -> Both
 	//{
 	//	HandleInputInterrupt(true);
 	//	HandleInputInterrupt(false);
 	//
-	//	input = ((!m_InputBuffer[InputButtons::START]) << 3 & (!m_InputBuffer[InputButtons::START]) << 3) 
-	//		+ ((!m_InputBuffer[InputButtons::SELECT] << 2) & (!m_InputBuffer[InputButtons::UP] << 2)) 
-	//		+ ((!m_InputBuffer[InputButtons::B] << 1) & (!m_InputBuffer[InputButtons::LEFT] << 1)) 
+	//	input = ((!m_InputBuffer[InputButtons::START]) << 3 & (!m_InputBuffer[InputButtons::START]) << 3)
+	//		+ ((!m_InputBuffer[InputButtons::SELECT] << 2) & (!m_InputBuffer[InputButtons::UP] << 2))
+	//		+ ((!m_InputBuffer[InputButtons::B] << 1) & (!m_InputBuffer[InputButtons::LEFT] << 1))
 	//		+ ((!m_InputBuffer[InputButtons::A] << 0) & (!m_InputBuffer[InputButtons::RIGHT] << 0));
-	//}
+	// }
 	else
 		input = 0x3F;
 

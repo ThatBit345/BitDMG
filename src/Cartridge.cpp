@@ -9,7 +9,7 @@
 #include "Log.h"
 #include <cmath>
 
-Cartridge::Cartridge(const char* romPath) : m_ROMBank(1)
+Cartridge::Cartridge(const char* romPath) : m_ROMBank(1), m_RAMEnabled(false)
 {
 	std::string logTxt = "Loading ROM file: " + std::string(romPath);
 	Log::LogInfo(logTxt.c_str());
@@ -224,6 +224,34 @@ Cartridge::Cartridge(const char* romPath) : m_ROMBank(1)
 		break;
 	}
 
+	// Set RAM size
+	switch(header[0x0149])
+	{
+		case 0:
+		case 1:
+			m_Ram.resize(0);
+			break;
+
+		case 2: // 8KiB
+			m_Ram.resize(8192);
+			break;
+	
+		case 3: // 32KiB
+			m_Ram.resize(32768);
+			break;
+	
+		case 4: // 128KiB
+			m_Ram.resize(131072);
+			break;
+	
+		case 5: // 64KiB
+			m_Ram.resize(65536);
+			break;
+	}
+
+	std::string ramLogTxt = "RAM size: " + std::to_string(m_Ram.size());
+	Log::LogInfo(ramLogTxt.c_str());
+
 	// Calculate the size of the rom specified in the header
 	size_t romSize = 32768 * std::pow(2, header[0x0148]);
 	this->m_Rom.resize(romSize);
@@ -265,10 +293,13 @@ Cartridge::Cartridge(const char* romPath) : m_ROMBank(1)
 */
 unsigned char Cartridge::ReadU8(int address)
 {
-	if (address >= 0x4000 && m_Hardware.mapper == Mapper::MBC1) // In banked area
+	if (m_Hardware.mapper == Mapper::MBC1)
 	{
-		unsigned short bankAddress = address - 0x4000;
-		return m_Rom[bankAddress + (m_ROMBank * (unsigned short)0x4000)];
+		if(address < 0x4000) 
+			return m_Rom[address];
+
+		int bankedAddress = ((m_ROMBank & 0b11111) << 14) + address;
+		return m_Rom[bankedAddress];
 	}
 	
 	return m_Rom[address];
@@ -279,12 +310,20 @@ unsigned char Cartridge::ReadU8(int address)
 */
 unsigned short Cartridge::ReadU16(int address)
 {
-	if (address >= 0x4000 && m_Hardware.mapper == Mapper::MBC1) // In banked area
+	if (m_Hardware.mapper == Mapper::MBC1)
 	{
-		unsigned short bankAddress = address - 0x4000;
+		if(address < 0x4000) 
+		{
+			unsigned char lsb = m_Rom[address];
+			unsigned char msb = m_Rom[address + 1];
 
-		unsigned char lsb = m_Rom[bankAddress + (m_ROMBank * (unsigned short)0x4000)];
-		unsigned char msb = m_Rom[bankAddress + 1 + (m_ROMBank * (unsigned short)0x4000)];
+			return ((unsigned short)msb << 8) | lsb;
+		}
+
+		int bankedAddress = ((m_ROMBank & 0b11111) << 14) + address;
+
+		unsigned char lsb = m_Rom[bankedAddress];
+		unsigned char msb = m_Rom[bankedAddress + 1];
 
 		return ((unsigned short)msb << 8) | lsb;
 	}
@@ -295,6 +334,58 @@ unsigned short Cartridge::ReadU16(int address)
 	return ((unsigned short)msb << 8) | lsb;
 }
 
+unsigned char Cartridge::ReadU8RAM(int address)
+{
+	if(!m_RAMEnabled) return 0xFF;
+
+	if(m_Hardware.mapper == Mapper::MBC1)
+	{
+		return m_Ram[address - 0xA000];
+	}
+
+	return 0xFF;
+}
+
+unsigned char Cartridge::ReadU16RAM(int address)
+{
+	unsigned char lsb = m_Ram[address - 0xA000];
+	unsigned char msb = m_Ram[address - 0xA000 + 1];
+
+	return ((unsigned short)msb << 8) | lsb;
+}
+
+void Cartridge::WriteU8RAM(int address, unsigned char value)
+{
+	if(!m_RAMEnabled) return;
+
+	if(m_Hardware.mapper == Mapper::MBC1)
+	{
+		m_Ram[address - 0xA000] = value;
+	}
+}
+
+void Cartridge::WriteU16RAM(int address, unsigned short value)
+{
+	if(!m_RAMEnabled) return;
+
+	if(m_Hardware.mapper == Mapper::MBC1)
+	{
+		m_Ram[address - 0xA000] = value & 0xFF;
+		m_Ram[address - 0xA000 + 1] = value >> 8;
+	}
+}
+
+void Cartridge::WriteU16RAM(int address, unsigned char lsb, unsigned char msb)
+{
+	if(!m_RAMEnabled) return;
+
+	if(m_Hardware.mapper == Mapper::MBC1)
+	{
+		m_Ram[address - 0xA000] = lsb;
+		m_Ram[address - 0xA000 + 1] = msb;
+	}
+}
+
 /* Try to write in ROM to access mapper registers.
 *  [address] -> Memory address to write to
 *  [value] -> Value to write at address
@@ -303,7 +394,11 @@ void Cartridge::CheckROMWrite(int address, unsigned char value)
 {
 	if(m_Hardware.mapper == Mapper::MBC1)
 	{
-		if (address >= 0x2000 && address <= 0x3FFF) // ROM Bank switch
+		if(address <= 0x1FFF) // RAM Enable
+		{
+			m_RAMEnabled = (value & 0b1111) == 0xA;
+		}
+		else if (address >= 0x2000 && address <= 0x3FFF) // ROM Bank switch
 		{
 			m_ROMBank = (value == 0) ? 1 : (value & 0x00011111);
 		}

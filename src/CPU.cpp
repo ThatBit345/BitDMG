@@ -5,7 +5,7 @@
 #include <sstream>
 #include <iomanip>
 
-CPU::CPU(std::shared_ptr<Memory> memory) : m_SP(0xFFFE), m_PC(0x0100), m_Halted(false), m_HaltBug(false), m_FirstCycle(true)
+CPU::CPU(std::shared_ptr<Memory> memory) : m_SP(0xFFFE), m_PC(0x0100), m_Halted(false), m_HaltBug(false)
 {
 	// Mimic state after boot ROM
 	m_Registers.a = 0x01;
@@ -30,12 +30,6 @@ CPU::CPU(std::shared_ptr<Memory> memory) : m_SP(0xFFFE), m_PC(0x0100), m_Halted(
 */
 int CPU::Cycle()
 {
-	if (m_FirstCycle) 
-	{
-		m_FirstCycle = false;
-		Log();
-	}
-
 	int cycles = 0;
 
 	if (CheckInterrupts() == 5) cycles = 5;
@@ -224,7 +218,7 @@ int CPU::Cycle()
 		m_EnableIME = false;
 	}
 
-	Log();
+	//Log();
 	return cycles;
 }
 
@@ -396,8 +390,6 @@ unsigned short CPU::GetR16(unsigned char reg)
 */
 void CPU::Log()
 {
-	return;
-
 	std::clog << std::hex << std::uppercase <<
 		"A:" << std::setw(2) << std::setfill('0') << (int)m_Registers.a <<
 		" F:" << std::setw(2) << std::setfill('0') << (int)m_FlagRegister.toU8() <<

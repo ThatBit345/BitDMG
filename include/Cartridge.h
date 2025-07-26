@@ -28,15 +28,24 @@ public:
 	unsigned char ReadU8(int address);
 	unsigned short ReadU16(int address);
 
+	unsigned char ReadU8RAM(int address);
+	unsigned char ReadU16RAM(int address);
+	void WriteU8RAM(int address, unsigned char value);
+	void WriteU16RAM(int address, unsigned short value);
+	void WriteU16RAM(int address, unsigned char lsb, unsigned char msb);
+
 	void CheckROMWrite(int address, unsigned char value);
 
 private:
 	std::vector<unsigned char> m_Rom;
+	std::vector<unsigned char> m_Ram;
 	std::string m_CartName;
 	CartridgeHardware m_Hardware;
 
 	unsigned char m_ROMBank;
 	bool m_IsValid;
+
+	bool m_RAMEnabled;
 
 	void SetHardware(Mapper mapper, bool ram, bool battery, bool timer, bool rumble, bool sensor);
 

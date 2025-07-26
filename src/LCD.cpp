@@ -228,15 +228,15 @@ void LCD::DrawScanline(int LY)
 			if(xFlip) pixelIteration++;
 			else pixelIteration--;
 		}
-		while(pixelIteration < 7 && pixelIteration > 0);
+		while(pixelIteration <= 7 && pixelIteration >= 0);
 	}
 }
 
-/* Set the internal surface's color to #CADC9F, mimicking the Gameboy's background color when disabled.
+/* Set the internal surface's color to #9bbc0f, mimicking the Gameboy's background color when disabled.
  */
 void LCD::DisableLCD()
 {
-	SDL_FillSurfaceRect(m_Surface, NULL, 0xCADC9F);
+	SDL_FillSurfaceRect(m_Surface, NULL, 0x9bbc0f);
 }
 
 /* Blit the internal surface to the window's surface and update it.

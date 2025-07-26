@@ -22,7 +22,8 @@ void PPU::Tick(int cycles)
 		m_Mem->UnlockOAM();
 		m_Mem->UnlockVRAM();
 
-		// m_LCD.DisableLCD();
+		m_Mem->WriteU8Unfiltered(0xFF41, m_Mem->ReadU8(0xFF41) & 0b11111100); // Set STAT to mode 0
+		m_LCD.DisableLCD();
 		return;
 	}
 
@@ -49,7 +50,7 @@ void PPU::Tick(int cycles)
 			if (m_Mem->ReadU8(0xFF44) == 143)
 			{
 				m_Mode = 1;
-				m_Mem->WriteU8Unfiltered(0xFF41, (m_Mem->ReadU8(0xFF41) & 0b11111100) + 0b01); // Set STAT register flag
+				m_Mem->WriteU8Unfiltered(0xFF41, (m_Mem->ReadU8(0xFF41) & 0b11111100) | 0b01); // Set STAT register flag
 
 				if (statMode1)
 				{
@@ -65,7 +66,7 @@ void PPU::Tick(int cycles)
 			else
 			{
 				m_Mode = 2;
-				m_Mem->WriteU8Unfiltered(0xFF41, (m_Mem->ReadU8(0xFF41) & 0b11111100) + 0b10); // Set STAT register flag
+				m_Mem->WriteU8Unfiltered(0xFF41, (m_Mem->ReadU8(0xFF41) & 0b11111100) | 0b10); // Set STAT register flag
 				m_Mem->LockOAM();
 
 				if (statMode2)
@@ -92,7 +93,7 @@ void PPU::Tick(int cycles)
 			m_Mem->LockOAM();
 
 			m_Mode = 2;
-			m_Mem->WriteU8Unfiltered(0xFF41, (m_Mem->ReadU8(0xFF41) & 0b11111100) + 0b10); // Set STAT register flag
+			m_Mem->WriteU8Unfiltered(0xFF41, (m_Mem->ReadU8(0xFF41) & 0b11111100) | 0b10); // Set STAT register flag
 
 			if (statMode2)
 			{
@@ -143,7 +144,7 @@ void PPU::Tick(int cycles)
 			m_Clock = 0;
 			m_Mode = 3;
 
-			m_Mem->WriteU8Unfiltered(0xFF41, (m_Mem->ReadU8(0xFF41) & 0b11111100) + 0b11); // Set STAT register flag
+			m_Mem->WriteU8Unfiltered(0xFF41, (m_Mem->ReadU8(0xFF41) & 0b11111100) | 0b11); // Set STAT register flag
 
 			m_Mem->LockVRAM();
 		}
