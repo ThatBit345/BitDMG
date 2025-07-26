@@ -8,6 +8,7 @@ class LCD
 {
 public:
 	LCD(std::shared_ptr<Memory> mem);
+	~LCD();
 
 	void SetWindow(SDL_Window* window);
 	bool IsReady();
@@ -28,6 +29,7 @@ private:
 	SDL_Window* m_Window;
 	SDL_Surface* m_Surface;
 	SDL_Surface* m_Screen;
+	SDL_Rect m_BlitRect;
 
 	unsigned int m_Palette[4];
 	std::array<int, 10> m_Sprites;

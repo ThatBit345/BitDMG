@@ -22,6 +22,7 @@ private:
 	std::shared_ptr<Cartridge> m_Cartridge;
 	CPU m_CPU;
 	PPU m_PPU;
+	SDL_Window* m_Window;
 
 	bool m_Valid;
 	bool m_Running;

@@ -28,6 +28,8 @@ GameBoy::GameBoy(std::filesystem::path romPath, SDL_Window *window) : m_CPU(null
 	std::string title = "BitDMG - " + m_Cartridge->GetCartName();
 	SDL_SetWindowTitle(window, title.c_str());
 
+	m_Window = window;
+
 	m_Memory = std::make_shared<Memory>(m_Cartridge);
 	m_CPU = (m_Memory);
 	m_PPU = (m_Memory);
@@ -52,7 +54,16 @@ void GameBoy::Update()
 
 	while (SDL_PollEvent(&event))
 	{
-		if (event.type == SDL_EVENT_KEY_DOWN)
+		if (event.type == SDL_EVENT_WINDOW_RESIZED)
+		{
+			m_PPU.ConfigureLCD(m_Window);
+		}
+		else if (event.type == SDL_EVENT_QUIT)
+		{
+			m_Running = false;
+			return;
+		}
+		else if (event.type == SDL_EVENT_KEY_DOWN)
 		{
 			if (event.key.scancode == SDL_SCANCODE_UP)
 			{

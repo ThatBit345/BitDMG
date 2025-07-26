@@ -13,5 +13,5 @@ file(GLOB SRCS
 		"${PROJECT_SOURCE_DIR}/include/*h"
 		"${PROJECT_SOURCE_DIR}/src/*.cpp")
 
-add_executable(BitBoy ${SRCS})
-target_link_libraries(BitBoy PRIVATE SDL3::SDL3)
+add_executable(BitDMG ${SRCS} rc/BitDMG.rc)
+target_link_libraries(BitDMG PRIVATE SDL3::SDL3)

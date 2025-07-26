@@ -7,7 +7,7 @@
 #include "Log.h"
 #include "Utils.h"
 
-LCD::LCD(std::shared_ptr<Memory> mem) : m_Ready(false), m_Mem(mem)
+LCD::LCD(std::shared_ptr<Memory> mem) : m_Ready(false), m_Mem(mem), m_Surface(nullptr)
 {
 	m_Palette[0] = 0xBADA55; // Lighter color
 	m_Palette[1] = 0x82993B;
@@ -17,6 +17,12 @@ LCD::LCD(std::shared_ptr<Memory> mem) : m_Ready(false), m_Mem(mem)
 	m_SpritePriorityMask.fill(false);
 }
 
+LCD::~LCD()
+{
+	SDL_DestroySurface(m_Surface);
+	SDL_DestroySurface(m_Screen);
+}
+
 /* Set window and create SDL_Surface used for rendering.
  *  [window] -> Window in which to render the Gameboy's LCD
  */
@@ -24,7 +30,19 @@ void LCD::SetWindow(SDL_Window *window)
 {
 	m_Window = window;
 	m_Screen = SDL_GetWindowSurface(window);
-	m_Surface = SDL_CreateSurface(160, 144, m_Screen->format);
+
+	if(m_Surface == nullptr)
+	{
+		m_Surface = SDL_CreateSurface(160, 144, m_Screen->format);
+	}
+
+	int widthRatio = std::floor(m_Screen->w / 160.0f);
+	int heightRatio = std::floor(m_Screen->h / 144.0f);
+	int scaleRatio = std::min(widthRatio, heightRatio);
+
+	int x = (m_Screen->w / 2.0f) - ((160 * scaleRatio) / 2.0f);
+
+	m_BlitRect = {x, 0, 160 * scaleRatio, 144 * scaleRatio};
 
 	m_Ready = true;
 }
@@ -252,7 +270,7 @@ void LCD::Render()
 		return;
 
 	// ShowTiles();
-	SDL_BlitSurfaceScaled(m_Surface, nullptr, m_Screen, nullptr, SDL_SCALEMODE_NEAREST);
+	SDL_BlitSurfaceScaled(m_Surface, nullptr, m_Screen, &m_BlitRect, SDL_SCALEMODE_NEAREST);
 	SDL_UpdateWindowSurface(m_Window);
 }
 
