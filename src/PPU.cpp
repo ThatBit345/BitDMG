@@ -10,7 +10,7 @@ PPU::PPU(std::shared_ptr<Memory> memory) : m_Clock(0), m_Mode(0), m_LCD(memory),
 }
 
 /* Tick PPU by the CPU cycle count (keeping them synced).
- *  [cycles] -> CPU T-Cycles taken during last operation
+ * [cycles] -> CPU T-Cycles taken during last operation
  */
 void PPU::Tick(int cycles)
 {

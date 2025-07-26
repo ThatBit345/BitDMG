@@ -126,7 +126,7 @@ void Memory::WriteU8(unsigned short address, unsigned char value)
 	{
 		m_Cartridge->WriteU8RAM(address, value);
 	}
-	// else if (address == 0xFF01) Log::LogCustom((char*)&value, "SERIAL OUT"); // Trap serial output and log it
+	//else if (address == 0xFF01) Log::LogCustom((char*)&value, "SERIAL OUT"); // Trap serial output and log it
 	else if (address >= 0xC000 && address <= 0xDDFF)
 	{
 		// Write to echo RAM

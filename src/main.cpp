@@ -54,7 +54,7 @@ int main(int argc, char* argv[])
 
     std::filesystem::path romPath;
     if (argc == 2) romPath = argv[1];
-	else romPath = "Dr Mario.gb";
+	else romPath = "Super Mario Land.gb";
 
     GameBoy gb = {romPath, window};
     if (!gb.IsValid()) 

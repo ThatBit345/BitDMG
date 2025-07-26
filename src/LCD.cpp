@@ -7,10 +7,10 @@
 
 LCD::LCD(std::shared_ptr<Memory> mem) : m_Ready(false), m_Mem(mem)
 {
-	m_Palette[0] = 0x9bbc0f; // Lighter color
-	m_Palette[1] = 0x8bac0f;
-	m_Palette[2] = 0x306230;
-	m_Palette[3] = 0x0f380f; // Darker color
+	m_Palette[0] = 0xBADA55; // Lighter color
+	m_Palette[1] = 0x82993B;
+	m_Palette[2] = 0x4A5722;
+	m_Palette[3] = 0x121608; // Darker color
 }
 
 /* Set window and create SDL_Surface used for rendering.
@@ -232,11 +232,11 @@ void LCD::DrawScanline(int LY)
 	}
 }
 
-/* Set the internal surface's color to #9bbc0f, mimicking the Gameboy's background color when disabled.
+/* Set the internal surface's color to the lightest color.
  */
 void LCD::DisableLCD()
 {
-	SDL_FillSurfaceRect(m_Surface, NULL, 0x9bbc0f);
+	SDL_FillSurfaceRect(m_Surface, NULL, m_Palette[0]);
 }
 
 /* Blit the internal surface to the window's surface and update it.

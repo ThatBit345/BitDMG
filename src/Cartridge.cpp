@@ -298,7 +298,7 @@ unsigned char Cartridge::ReadU8(int address)
 		if(address < 0x4000) 
 			return m_Rom[address];
 
-		int bankedAddress = ((m_ROMBank & 0b11111) << 14) + address;
+		int bankedAddress = (address - 0x4000) + (m_ROMBank * 0x4000);
 		return m_Rom[bankedAddress];
 	}
 	
@@ -320,7 +320,7 @@ unsigned short Cartridge::ReadU16(int address)
 			return ((unsigned short)msb << 8) | lsb;
 		}
 
-		int bankedAddress = ((m_ROMBank & 0b11111) << 14) + address;
+		int bankedAddress = (address - 0x4000) + (m_ROMBank * 0x4000);
 
 		unsigned char lsb = m_Rom[bankedAddress];
 		unsigned char msb = m_Rom[bankedAddress + 1];
@@ -400,7 +400,7 @@ void Cartridge::CheckROMWrite(int address, unsigned char value)
 		}
 		else if (address >= 0x2000 && address <= 0x3FFF) // ROM Bank switch
 		{
-			m_ROMBank = (value == 0) ? 1 : (value & 0x00011111);
+			m_ROMBank = (value == 0) ? 1 : (value & 0b00011111);
 		}
 		else if (address >= 0x4000 && address <= 0x5FFF && m_Rom[0x0148] >= 0x05) // Second RAM/ROM Bank switch (only if ROM > 1MiB)
 		{
