@@ -7,7 +7,7 @@
 
 GameBoy::GameBoy(std::filesystem::path romPath, SDL_Window *window) : m_CPU(nullptr), m_PPU(nullptr), m_Valid(true), m_Running(true), m_CycleCount(0), m_DividerCycles(0), m_TimerCycles(0)
 {
-	Log::LogInfo("BitBoy v0.5.0");
+	Log::LogInfo("BitDMG v0.6.0");
 
 	if (romPath.empty())
 	{
@@ -24,6 +24,9 @@ GameBoy::GameBoy(std::filesystem::path romPath, SDL_Window *window) : m_CPU(null
 		m_Valid = false;
 		return;
 	}
+
+	std::string title = "BitDMG - " + m_Cartridge->GetCartName();
+	SDL_SetWindowTitle(window, title.c_str());
 
 	m_Memory = std::make_shared<Memory>(m_Cartridge);
 	m_CPU = (m_Memory);

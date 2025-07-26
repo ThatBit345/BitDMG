@@ -31,6 +31,7 @@ private:
 
 	unsigned int m_Palette[4];
 	std::array<int, 10> m_Sprites;
+	std::array<bool, 160> m_SpritePriorityMask;
 
 	bool m_Ready;
 };

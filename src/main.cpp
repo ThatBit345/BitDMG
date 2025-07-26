@@ -25,7 +25,7 @@ int main(int argc, char* argv[])
 		return 1;
 	}
 
-	SDL_Window* window = SDL_CreateWindow("BitBoy - Gameboy emulator :)", 160*2, 144*2, 0);
+	SDL_Window* window = SDL_CreateWindow("BitDMG - ", 160*2, 144*2, SDL_WINDOW_RESIZABLE);
 	if(window == nullptr)
 	{
 		std::string errorStr = "SDL Error while creating a window";
@@ -54,7 +54,7 @@ int main(int argc, char* argv[])
 
     std::filesystem::path romPath;
     if (argc == 2) romPath = argv[1];
-	else romPath = "Super Mario Land.gb";
+	else romPath = "Tetris.gb";
 
     GameBoy gb = {romPath, window};
     if (!gb.IsValid()) 

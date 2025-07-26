@@ -1,7 +1,9 @@
 ﻿#include "PPU.h"
 
 #include <iostream>
+
 #include "Log.h"
+#include "Utils.h"
 
 PPU::PPU(std::shared_ptr<Memory> memory) : m_Clock(0), m_Mode(0), m_LCD(memory),
 										   m_STAT(false), m_LYCSTAT(false), m_Mode2STAT(false), m_Mode1STAT(false), m_Mode0STAT(false)
@@ -17,12 +19,13 @@ void PPU::Tick(int cycles)
 	unsigned char LCDC = m_Mem->ReadU8(0xFF40);
 
 	// Disable PPU
-	if (LCDC >> 7 == 0)
+	if (GetBit(LCDC, 7) == false)
 	{
 		m_Mem->UnlockOAM();
 		m_Mem->UnlockVRAM();
 
-		m_Mem->WriteU8Unfiltered(0xFF41, m_Mem->ReadU8(0xFF41) & 0b11111100); // Set STAT to mode 0
+		// Set STAT to mode 0
+		m_Mem->WriteU8Unfiltered(0xFF41, m_Mem->ReadU8(0xFF41) & 0b11111100); 
 		m_LCD.DisableLCD();
 		return;
 	}
@@ -33,9 +36,9 @@ void PPU::Tick(int cycles)
 
 	// STAT Interrupt handling
 	unsigned char STAT = m_Mem->ReadU8(0xFF41);
-	bool statMode2 = (STAT & 0b00100000) >> 5;
-	bool statMode1 = (STAT & 0b00010000) >> 4;
-	bool statMode0 = (STAT & 0b00001000) >> 3;
+	bool statMode2 = GetBit(STAT, 5);
+	bool statMode1 = GetBit(STAT, 4);
+	bool statMode0 = GetBit(STAT, 3);
 
 	switch (m_Mode)
 	{
@@ -121,7 +124,7 @@ void PPU::Tick(int cycles)
 			if (((LCDC >> 1) & 0b1) == true)
 			{ 
 				// If sprites are 16 pixels tall, consider that as the Y offset for the check
-				int spriteYOffset = (((LCDC >> 2) & 0b1) == 1) ? 16 : 8;
+				int spriteYOffset = GetBit(LCDC, 2) ? 16 : 8;
 
 				// Select 10 sprites for current scanline
 				for (int i = 0; i < 40; i++)
@@ -180,7 +183,7 @@ void PPU::Tick(int cycles)
 	}
 }
 
-/* Print tiles to console using characters " , ░, ▓, █".
+/* Print tiles to console using characters: " , ░, ▓, █".
  */
 void PPU::PrintTiles()
 {
@@ -192,7 +195,7 @@ void PPU::PrintTiles()
 		for (int j = 7; j >= 0; j--)
 		{
 			unsigned char color = 0;
-			color = (((msb >> j) & 0b1) << 1) | ((lsb >> j) & 0b1);
+			color = (GetBit(msb, j) << 1) | GetBit(lsb, j);
 
 			switch (color)
 			{
@@ -258,7 +261,7 @@ void PPU::IncrementLY()
 	if (LYC == LY)
 	{
 		unsigned char STAT = m_Mem->ReadU8(0xFF41);
-		bool statEquals = (STAT & 0b01000000) >> 6;
+		bool statEquals = GetBit(STAT, 6);
 
 		// Set STAT line to high
 		if (statEquals)

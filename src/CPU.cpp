@@ -1,5 +1,6 @@
 #include "CPU.h"
 #include "Log.h"
+#include "Utils.h"
 
 #include <iostream>
 #include <sstream>
@@ -238,7 +239,7 @@ int CPU::CheckInterrupts()
 
 		for (size_t i = 0; i < 5; i++)
 		{
-			bool interruptByte = (IF >> i) & 0x01;
+			bool interruptByte = GetBit(IF, i);
 
 			if (interruptByte == true)
 			{

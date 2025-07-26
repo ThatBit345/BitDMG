@@ -5,6 +5,7 @@
 #include <fstream>
 
 #include "Log.h"
+#include "Utils.h"
 
 Memory::Memory(std::shared_ptr<Cartridge> cart) : m_Cartridge(cart), m_VRAMLocked(false), m_OAMLocked(false)
 {
@@ -58,39 +59,49 @@ Memory::Memory(std::shared_ptr<Cartridge> cart) : m_Cartridge(cart), m_VRAMLocke
  */
 unsigned char Memory::ReadU8(unsigned short address)
 {
+	// Cartridge ROM
 	if (address <= 0x7FFF)
 	{
 		return m_Cartridge->ReadU8(address);
 	}
-	else if (address >= 0x8000 && address <= 0x9FFF && m_VRAMLocked)
+
+	// VRAM Lock
+	if (address >= 0x8000 && address <= 0x9FFF && m_VRAMLocked)
 	{
-		// VRAM Locked
 		return 0xFF;
 	}
-	else if (address >= 0xA000 && address <= 0xBFFF)
+
+	// External RAM
+	if (address >= 0xA000 && address <= 0xBFFF)
 	{
 		return m_Cartridge->ReadU8RAM(address);
 	}
-	else if (address >= 0xFE00 && address <= 0xFE9F && m_OAMLocked)
+
+	// OAM Lock
+	if (address >= 0xFE00 && address <= 0xFE9F && m_OAMLocked)
 	{
-		// OAM Locked
 		return 0xFF;
 	}
-	else if (address >= 0xFEA0 && address <= 0xFEFF)
+
+	// Prohibited area
+	if (address >= 0xFEA0 && address <= 0xFEFF)
 	{
-		// Prohibited area, returns 0xFF if OAM is blocked, 0x00 otherwise (triggers OAM corruption)
-		return 0xFF;
+		return m_OAMLocked ? 0xFF : 0x00;
 	}
-	else if (address == 0xFF00)
+
+	// Joypad register
+	if (address == 0xFF00)
 	{
 		UpdateInputRegister();
 		return m_Memory[address];
 	}
-	else if (address == 0xFF01)
+
+	// Serial
+	if (address == 0xFF01)
 	{
-		// Patch serial comms
 		return 0xFF;
 	}
+
 	return m_Memory[address];
 }
 
@@ -99,11 +110,14 @@ unsigned char Memory::ReadU8(unsigned short address)
  */
 unsigned char Memory::ReadU8Unfiltered(unsigned short address)
 {
+	// Cartridge ROM
 	if (address <= 0x7FFF)
 	{
 		return m_Cartridge->ReadU8(address);
 	}
-	else if (address >= 0xA000 && address <= 0xBFFF)
+
+	// External RAM
+	if (address >= 0xA000 && address <= 0xBFFF)
 	{
 		return m_Cartridge->ReadU8RAM(address);
 	}
@@ -117,38 +131,44 @@ unsigned char Memory::ReadU8Unfiltered(unsigned short address)
  */
 void Memory::WriteU8(unsigned short address, unsigned char value)
 {
-	// If writting in rom check for mapper registers
+	// Cartridge ROM -> Update mapper registers
 	if (address <= 0x7FFF)
 	{
 		m_Cartridge->CheckROMWrite(address, value);
+		return;
 	}
-	else if (address >= 0xA000 && address <= 0xBFFF)
+
+	// External RAM
+	if (address >= 0xA000 && address <= 0xBFFF)
 	{
 		m_Cartridge->WriteU8RAM(address, value);
+		return;
 	}
-	//else if (address == 0xFF01) Log::LogCustom((char*)&value, "SERIAL OUT"); // Trap serial output and log it
-	else if (address >= 0xC000 && address <= 0xDDFF)
+
+	// Trap serial output and log it
+	// if (address == 0xFF01) Log::LogCustom((char*)&value, "SERIAL OUT");
+
+	// Trap the timer's DIV register
+	if (address == 0xFF04)
 	{
-		// Write to echo RAM
-		m_Memory[address] = value;
-		m_Memory[address + 0x2000] = value;
-	}
-	else if (address == 0xFF04)
-	{
-		// Trap timer's DIV register
 		m_Memory[0xFF04] = 0x00;
-	}
-	else if (address >= 0x8000 && address <= 0x9FFF && m_VRAMLocked)
-	{
-		// VRAM Locked
 		return;
 	}
-	else if (address >= 0xFE00 && address <= 0xFE9F && m_OAMLocked)
+
+	// VRAM Lock
+	if (address >= 0x8000 && address <= 0x9FFF && m_VRAMLocked)
 	{
-		// OAM Locked
 		return;
 	}
-	else if (address == 0xFF46) // DMA Transfer
+
+	// OAM Lock
+	if (address >= 0xFE00 && address <= 0xFE9F && m_OAMLocked)
+	{
+		return;
+	}
+
+	// DMA Transfer
+	if (address == 0xFF46)
 	{
 		unsigned short source = value * 0x100;
 
@@ -156,10 +176,16 @@ void Memory::WriteU8(unsigned short address, unsigned char value)
 		{
 			m_Memory[0xFE00 + i] = m_Memory[source + i];
 		}
+
+		return;
 	}
-	else
+
+	m_Memory[address] = value;
+
+	// Internal RAM, when writting to this area the changes are replicated at Echo RAM
+	if (address >= 0xC000 && address <= 0xDDFF)
 	{
-		m_Memory[address] = value;
+		m_Memory[address + 0x2000] = value;
 	}
 }
 
@@ -169,21 +195,22 @@ void Memory::WriteU8(unsigned short address, unsigned char value)
  */
 void Memory::WriteU8Unfiltered(unsigned short address, unsigned char value)
 {
-	m_Memory[address] = value;
-
+	// Cartridge ROM -> Update mapper registers
 	if (address <= 0x7FFF)
 	{
 		m_Cartridge->CheckROMWrite(address, value);
+		return;
 	}
-	else if (address >= 0xA000 && address <= 0xBFFF)
+
+	// External RAM
+	if (address >= 0xA000 && address <= 0xBFFF)
 	{
 		m_Cartridge->WriteU8RAM(address, value);
+		return;
 	}
-	else if (address >= 0xC000 && address <= 0xDDFF)
-	{
-		m_Memory[address + 0x2000] = value; // Write to echo RAM
-	}
-	else if (address == 0xFF46) // DMA Transfer
+
+	// DMA Transfer
+	if (address == 0xFF46)
 	{
 		unsigned short source = value * 0x100;
 
@@ -191,6 +218,16 @@ void Memory::WriteU8Unfiltered(unsigned short address, unsigned char value)
 		{
 			m_Memory[0xFE00 + i] = m_Memory[source + i];
 		}
+
+		return;
+	}
+
+	m_Memory[address] = value;
+
+	// Internal RAM, when writting to this area the changes are replicated at Echo RAM
+	if (address >= 0xC000 && address <= 0xDDFF)
+	{
+		m_Memory[address + 0x2000] = value;
 	}
 }
 
@@ -199,28 +236,34 @@ void Memory::WriteU8Unfiltered(unsigned short address, unsigned char value)
  */
 unsigned short Memory::ReadU16(unsigned short address)
 {
+	// Cartridge ROM
 	if (address <= 0x7FFF)
 	{
 		return m_Cartridge->ReadU16(address);
 	}
-	else if (address >= 0x8000 && address <= 0x9FFF && m_VRAMLocked)
+
+	// VRAM Lock
+	if (address >= 0x8000 && address <= 0x9FFF && m_VRAMLocked)
 	{
-		// VRAM Locked
 		return 0xFFFF;
 	}
-	else if (address >= 0xA000 && address <= 0xBFFF)
+
+	// External RAM
+	if (address >= 0xA000 && address <= 0xBFFF)
 	{
 		return m_Cartridge->ReadU16RAM(address);
 	}
-	else if (address >= 0xFE00 && address <= 0xFE9F && m_OAMLocked)
+
+	// OAM Lock
+	if (address >= 0xFE00 && address <= 0xFE9F && m_OAMLocked)
 	{
-		// OAM Locked
 		return 0xFFFF;
 	}
-	else if (address >= 0xFEA0 && address <= 0xFEFF)
+
+	// Prohibited area
+	if (address >= 0xFEA0 && address <= 0xFEFF)
 	{
-		// Prohibited area, returns 0xFF if OAM is blocked, 0x00 otherwise (triggers OAM corruption)
-		return 0xFFFF;
+		return m_OAMLocked ? 0x00FF : 0x0000;
 	}
 
 	unsigned char lsb = m_Memory[address];
@@ -238,36 +281,39 @@ void Memory::WriteU16(unsigned short address, unsigned short value)
 	unsigned char lsb = (unsigned char)value;
 	unsigned char msb = (unsigned char)(value >> 8);
 
-	// No writting in ROM
+	// Cartridge ROM, forbidden
 	if (address <= 0x7FFF)
 	{
 		return;
 	}
-	else if (address >= 0x8000 && address <= 0x9FFF && m_VRAMLocked)
+
+	// VRAM Lock
+	if (address >= 0x8000 && address <= 0x9FFF && m_VRAMLocked)
 	{
-		// VRAM Locked
 		return;
 	}
-	else if (address >= 0xA000 && address <= 0xBFFF)
+
+	// External RAM
+	if (address >= 0xA000 && address <= 0xBFFF)
 	{
 		m_Cartridge->WriteU16RAM(address, value);
-	}
-	else if (address >= 0xFE00 && address <= 0xFE9F && m_OAMLocked)
-	{
-		// OAM Locked
 		return;
 	}
-	else if (address >= 0xC000 && address <= 0xDDFF)
+
+	// OAM Lock
+	if (address >= 0xFE00 && address <= 0xFE9F && m_OAMLocked)
 	{
-		m_Memory[address] = lsb;
-		m_Memory[address + 1] = msb;
+		return;
+	}
+
+	m_Memory[address] = lsb;
+	m_Memory[address + 1] = msb;
+
+	// If we wrote to internal RAM, replicate changes to Echo RAM
+	if (address >= 0xC000 && address <= 0xDDFF)
+	{
 		m_Memory[address + 0x2000] = lsb; // Write to echo RAM
 		m_Memory[address + 0x2001] = msb; // Write to echo RAM
-	}
-	else
-	{
-		m_Memory[address] = lsb;
-		m_Memory[address + 1] = msb;
 	}
 }
 
@@ -278,36 +324,39 @@ void Memory::WriteU16(unsigned short address, unsigned short value)
  */
 void Memory::WriteU16(unsigned short address, unsigned char lsb, unsigned char msb)
 {
-	// No writting in ROM
+	// Cartridge ROM, forbidden
 	if (address <= 0x7FFF)
 	{
 		return;
 	}
-	else if (address >= 0x8000 && address <= 0x9FFF && m_VRAMLocked)
+
+	// VRAM Lock
+	if (address >= 0x8000 && address <= 0x9FFF && m_VRAMLocked)
 	{
-		// VRAM Locked
 		return;
 	}
-	else if (address >= 0xA000 && address <= 0xBFFF)
+
+	// External RAM
+	if (address >= 0xA000 && address <= 0xBFFF)
 	{
 		m_Cartridge->WriteU16RAM(address, lsb, msb);
-	}
-	else if (address >= 0xFE00 && address <= 0xFE9F && m_OAMLocked)
-	{
-		// OAM Locked
 		return;
 	}
-	else if (address >= 0xC000 && address <= 0xDDFF)
+
+	// OAM Lock
+	if (address >= 0xFE00 && address <= 0xFE9F && m_OAMLocked)
 	{
-		m_Memory[address] = lsb;
-		m_Memory[address + 1] = msb;
+		return;
+	}
+
+	m_Memory[address] = lsb;
+	m_Memory[address + 1] = msb;
+
+	// If we wrote to internal RAM, replicate changes to Echo RAM
+	if (address >= 0xC000 && address <= 0xDDFF)
+	{
 		m_Memory[address + 0x2000] = lsb; // Write to echo RAM
 		m_Memory[address + 0x2001] = msb; // Write to echo RAM
-	}
-	else
-	{
-		m_Memory[address] = lsb;
-		m_Memory[address + 1] = msb;
 	}
 }
 
@@ -320,17 +369,22 @@ void Memory::WriteU16Unfiltered(unsigned short address, unsigned char value)
 	unsigned char lsb = (unsigned char)value;
 	unsigned char msb = (unsigned char)(value >> 8);
 
-	m_Memory[address] = lsb;
-	m_Memory[address + 1] = msb;
-
+	// External RAM
 	if (address >= 0xA000 && address <= 0xBFFF)
 	{
 		m_Cartridge->WriteU16RAM(address, value);
+		return;
 	}
-	else if (address >= 0xC000 && address <= 0xDDFF)
+
+	m_Memory[address] = lsb;
+	m_Memory[address + 1] = msb;
+
+	// If we wrote to internal RAM, replicate changes to Echo RAM
+	if (address >= 0xC000 && address <= 0xDDFF)
 	{
 		m_Memory[address + 0x2000] = lsb; // Write to echo RAM
 		m_Memory[address + 0x2001] = msb; // Write to echo RAM
+		return;
 	}
 }
 
@@ -343,24 +397,32 @@ void Memory::WriteU16Stack(unsigned short address, unsigned short value)
 	unsigned char lsb = (unsigned char)value;
 	unsigned char msb = (unsigned char)(value >> 8);
 
-	// No writting in ROM
+	// Cartridge ROM, forbidden
 	if (address <= 0x7FFF)
+	{
 		return;
-	else if (address >= 0x8000 && address <= 0x9FFF && m_VRAMLocked)
-		return; // VRAM Locked
-	else if (address >= 0xFE00 && address <= 0xFE9F && m_OAMLocked)
-		return; // OAM Locked
-	else if (address >= 0xC000 && address <= 0xDDFF)
-	{
-		m_Memory[address] = msb;
-		m_Memory[address - 1] = lsb;
-		m_Memory[address + 0x2000] = msb; // Write to echo RAM
-		m_Memory[address - 0x2001] = lsb; // Write to echo RAM
 	}
-	else
+
+	// VRAM Lock
+	if (address >= 0x8000 && address <= 0x9FFF && m_VRAMLocked)
 	{
-		m_Memory[address] = msb;
-		m_Memory[address - 1] = lsb;
+		return;
+	}
+
+	// OAM Lock
+	if (address >= 0xFE00 && address <= 0xFE9F && m_OAMLocked)
+	{
+		return;
+	}
+
+	m_Memory[address] = msb;
+	m_Memory[address - 1] = lsb;
+
+	// If we wrote to internal RAM, replicate changes to Echo RAM
+	if (address >= 0xC000 && address <= 0xDDFF)
+	{
+		m_Memory[address + 0x2000] = msb;
+		m_Memory[address - 0x2001] = lsb;
 	}
 }
 
@@ -397,35 +459,29 @@ void Memory::UpdateInputState(bool buffer[8])
 void Memory::UpdateInputRegister()
 {
 	unsigned char P1 = m_Memory[0xFF00];
-	bool joypad5 = (P1 >> 5) & 0b1;
-	bool joypad4 = (P1 >> 4) & 0b1;
+	bool joypad5 = GetBit(P1, 5);
+	bool joypad4 = GetBit(P1, 4);
 
 	unsigned char input = 0;
 
-	if (!joypad4 && joypad5) // 4 Low & 5 High -> D-Pad
+	// 4 Low & 5 High -> D-Pad
+	if (!joypad4 && joypad5) 
 	{
 		HandleInputInterrupt(false);
 
 		input = 0x20 + (!m_InputBuffer[InputButtons::DOWN] << 3) + (!m_InputBuffer[InputButtons::UP] << 2) + (!m_InputBuffer[InputButtons::LEFT] << 1) + (!m_InputBuffer[InputButtons::RIGHT] << 0);
 	}
-	else if (joypad4 && !joypad5) // 4 High & 5 Low -> Buttons
+	// 4 High & 5 Low -> Buttons
+	else if (joypad4 && !joypad5) 
 	{
 		HandleInputInterrupt(true);
 
 		input = 0x10 + (!m_InputBuffer[InputButtons::START] << 3) + (!m_InputBuffer[InputButtons::SELECT] << 2) + (!m_InputBuffer[InputButtons::B] << 1) + (!m_InputBuffer[InputButtons::A] << 0);
 	}
-	// else if (!joypad4 && !joypad5) // 4 Low & 5 Low -> Both
-	//{
-	//	HandleInputInterrupt(true);
-	//	HandleInputInterrupt(false);
-	//
-	//	input = ((!m_InputBuffer[InputButtons::START]) << 3 & (!m_InputBuffer[InputButtons::START]) << 3)
-	//		+ ((!m_InputBuffer[InputButtons::SELECT] << 2) & (!m_InputBuffer[InputButtons::UP] << 2))
-	//		+ ((!m_InputBuffer[InputButtons::B] << 1) & (!m_InputBuffer[InputButtons::LEFT] << 1))
-	//		+ ((!m_InputBuffer[InputButtons::A] << 0) & (!m_InputBuffer[InputButtons::RIGHT] << 0));
-	// }
 	else
+	{
 		input = 0x3F;
+	}
 
 	m_Memory[0xFF00] = input;
 }
@@ -437,7 +493,7 @@ void Memory::HandleInputInterrupt(bool isButtons)
 	bool inputBits[4];
 	for (size_t i = 0; i < 4; i++)
 	{
-		inputBits[i] = ~((P1 >> i) & 0b1);
+		inputBits[i] = ~(GetBit(P1, i));
 	}
 
 	for (size_t i = 0; i < 4; i++)

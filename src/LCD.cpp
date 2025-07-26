@@ -1,9 +1,11 @@
 #include "LCD.h"
 
-#include "Memory.h"
-#include "Log.h"
 #include <iostream>
 #include <cmath>
+
+#include "Memory.h"
+#include "Log.h"
+#include "Utils.h"
 
 LCD::LCD(std::shared_ptr<Memory> mem) : m_Ready(false), m_Mem(mem)
 {
@@ -11,6 +13,8 @@ LCD::LCD(std::shared_ptr<Memory> mem) : m_Ready(false), m_Mem(mem)
 	m_Palette[1] = 0x82993B;
 	m_Palette[2] = 0x4A5722;
 	m_Palette[3] = 0x121608; // Darker color
+
+	m_SpritePriorityMask.fill(false);
 }
 
 /* Set window and create SDL_Surface used for rendering.
@@ -53,8 +57,7 @@ void LCD::DrawScanline(int LY)
 
 	int x = -(SCX % 8);
 
-	std::array<bool, 160> spritePriorityMask;
-	spritePriorityMask.fill(false);
+	m_SpritePriorityMask.fill(false);
 
 	// Draw BG
 	for (int i = 0; i < 21; i++)
@@ -65,17 +68,19 @@ void LCD::DrawScanline(int LY)
 		int verticalLine = (scrolledY % 8);
 
 		int scrolledX = (SCX + (i * 8)) % 256;
+
+
 		// int scrolledX = i * 8;
 		int tileX = std::floor(scrolledX / 8.0f);
 
-		int tilemapAddress = ((LCDC & 0b00001000) != 0) ? 0x9C00 : 0x9800;
+		int tilemapAddress = GetBit(LCDC, 3) ? 0x9C00 : 0x9800;
 		unsigned char tileId = m_Mem->ReadU8Unfiltered((tilemapAddress + tileX) + (32 * tileY));
 
 		unsigned char lsb;
 		unsigned char msb;
 
 		// Take into account tile indexing modes
-		if ((LCDC & 0b00010000) == 0)
+		if (GetBit(LCDC, 4) == false)
 		{
 			if (tileId < 128)
 			{
@@ -102,8 +107,8 @@ void LCD::DrawScanline(int LY)
 			int colorIndex = m_Mem->ReadU8(0xFF47);
 			int paletteColor = m_Palette[(colorIndex >> (color * 2)) & 0b11];
 
-			if(x > 0 && x < 160 && colorIndex == 0)
-				spritePriorityMask[x] = true;
+			if(x >= 0 && x < 160 && colorIndex == 0)
+				m_SpritePriorityMask[x] = true;
 
 			int r = (paletteColor & 0xFF0000) >> 16;
 			int g = (paletteColor & 0x00FF00) >> 8;
@@ -116,7 +121,7 @@ void LCD::DrawScanline(int LY)
 
 	// Draw window
 	unsigned char WY = m_Mem->ReadU8(0xFF4A);
-	if(LY >= WY && ((LCDC >> 5) & 0b1) == 1)
+	if(LY >= WY && GetBit(LCDC, 5))
 	{
 		unsigned char WX = m_Mem->ReadU8(0xFF4B);
 		x = WX - 7;
@@ -129,14 +134,14 @@ void LCD::DrawScanline(int LY)
 
 			int tileX = std::floor(x / 8.0f);
 
-			int tilemapAddress = ((LCDC & 0b00001000) != 0) ? 0x9800 : 0x9C00;
+			int tilemapAddress = GetBit(LCDC, 4) ? 0x9800 : 0x9C00;
 			unsigned char tileId = m_Mem->ReadU8Unfiltered((tilemapAddress + tileX) + (32 * tileY));
 
 			unsigned char lsb;
 			unsigned char msb;
 
 			// Take into account tile indexing modes
-			if ((LCDC & 0b00010000) == 0)
+			if (GetBit(LCDC, 5) == false)
 			{
 				if (tileId < 128)
 				{
@@ -163,8 +168,8 @@ void LCD::DrawScanline(int LY)
 				int colorIndex = m_Mem->ReadU8(0xFF47);
 				int paletteColor = m_Palette[(colorIndex >> (color * 2)) & 0b11];
 
-				if(x > 0 && x < 160 && colorIndex == 0)
-					spritePriorityMask[x] = true;
+				if(x >= 0 && x < 160 && colorIndex == 0)
+					m_SpritePriorityMask[x] = true;
 
 				int r = (paletteColor & 0xFF0000) >> 16;
 				int g = (paletteColor & 0x00FF00) >> 8;
@@ -191,15 +196,15 @@ void LCD::DrawScanline(int LY)
 		unsigned char tileIndex = m_Mem->ReadU8Unfiltered(baseAddress + 2);
 		unsigned char flags = m_Mem->ReadU8Unfiltered(baseAddress + 3);
 		
-		bool yFlip = (flags >> 6) && 0b1 == 1;
-		bool xFlip = (flags >> 5) && 0b1 == 1;
-		bool priority = (flags >> 7) && 0b1 == 1;
+		bool yFlip = GetBit(flags, 6);
+		bool xFlip = GetBit(flags, 5);
+		bool priority = GetBit(flags, 7);
 
 		int verticalLine = yFlip ? std::abs(((LY - y) % 8) - 7) : (LY - y) % 8;
 		unsigned char lsb = m_Mem->ReadU8Unfiltered(0x8000 + (verticalLine * 2) + tileIndex * 16);
 		unsigned char msb = m_Mem->ReadU8Unfiltered(0x8000 + (verticalLine * 2) + 1 + tileIndex * 16);
 
-		int paletteBank = (((flags >> 3) & 0b1) == 1) ? 0xFF48 : 0xFF49;
+		int paletteBank = GetBit(flags, 4) ? 0xFF49 : 0xFF48;
 
 		int pixelIteration = xFlip ? 0 : 7;
 		do
@@ -207,9 +212,9 @@ void LCD::DrawScanline(int LY)
 			if(x >= 160 || x < 0) break;
 
 			unsigned char color = 0;
-			color = (((msb >> pixelIteration) & 0b1) << 1) | ((lsb >> pixelIteration) & 0b1);
+			color = (GetBit(msb, pixelIteration) << 1) | GetBit(lsb, pixelIteration);
 
-			bool prioritySkip = priority && spritePriorityMask[x];
+			bool prioritySkip = priority && m_SpritePriorityMask[x];
 			// Color 0 is used for transparency, ignore it
 			if (color > 0 && !prioritySkip)
 			{
@@ -266,7 +271,7 @@ void LCD::ShowTiles()
 		for (int j = 7; j >= 0; j--)
 		{
 			unsigned char color = 0;
-			color = (((msb >> j) & 0b1) << 1) | ((lsb >> j) & 0b1);
+			color = (GetBit(msb, j) << 1) | GetBit(lsb, j);
 
 			unsigned char colorIndex = m_Mem->ReadU8(0xFF47);
 			int paletteColor = m_Palette[(colorIndex >> (color * 2)) & 0b11];

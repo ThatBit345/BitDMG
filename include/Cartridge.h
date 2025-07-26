@@ -24,6 +24,7 @@ public:
 
 	inline bool IsValid() { return m_IsValid; }
 	inline Mapper GetMapper() { return m_Hardware.mapper; }
+	inline std::string GetCartName() { return m_CartName; }
 
 	unsigned char ReadU8(int address);
 	unsigned short ReadU16(int address);

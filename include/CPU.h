@@ -16,10 +16,10 @@ struct Registers
 
 struct FlagRegister
 {
-	bool zero = 0;
-	bool subtract = 0;
-	bool halfCarry = 0;
-	bool carry = 0;
+	bool zero = false;
+	bool subtract = false;
+	bool halfCarry = false;
+	bool carry = false;
 
 	// 8 Bits -> ZSHC0000
 	unsigned char toU8()
