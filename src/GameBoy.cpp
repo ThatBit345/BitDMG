@@ -7,7 +7,7 @@
 
 GameBoy::GameBoy(std::filesystem::path romPath, SDL_Window *window) : m_CPU(nullptr), m_PPU(nullptr), m_Valid(true), m_Running(true), m_CycleCount(0), m_DividerCycles(0), m_TimerCycles(0)
 {
-	Log::LogInfo("BitDMG v0.6.0");
+	Log::LogInfo("BitDMG v0.7.0");
 
 	if (romPath.empty())
 	{
@@ -15,7 +15,7 @@ GameBoy::GameBoy(std::filesystem::path romPath, SDL_Window *window) : m_CPU(null
 		m_Valid = false;
 		return;
 	}
-
+	
 	m_Cartridge = std::make_shared<Cartridge>(romPath.string().c_str());
 
 	if (!m_Cartridge->IsValid())
@@ -81,11 +81,11 @@ void GameBoy::Update()
 			{
 				m_InputBuffer[InputButtons::RIGHT] = true;
 			}
-			else if (event.key.scancode == SDL_SCANCODE_Z)
+			else if (event.key.scancode == SDL_SCANCODE_X)
 			{
 				m_InputBuffer[InputButtons::A] = true;
 			}
-			else if (event.key.scancode == SDL_SCANCODE_X)
+			else if (event.key.scancode == SDL_SCANCODE_Z)
 			{
 				m_InputBuffer[InputButtons::B] = true;
 			}
@@ -116,11 +116,11 @@ void GameBoy::Update()
 			{
 				m_InputBuffer[InputButtons::RIGHT] = false;
 			}
-			else if (event.key.scancode == SDL_SCANCODE_Z)
+			else if (event.key.scancode == SDL_SCANCODE_X)
 			{
 				m_InputBuffer[InputButtons::A] = false;
 			}
-			else if (event.key.scancode == SDL_SCANCODE_X)
+			else if (event.key.scancode == SDL_SCANCODE_Z)
 			{
 				m_InputBuffer[InputButtons::B] = false;
 			}

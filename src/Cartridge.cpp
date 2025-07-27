@@ -9,9 +9,9 @@
 #include "Log.h"
 #include <cmath>
 
-Cartridge::Cartridge(const char* romPath) : m_ROMBank(1), m_RAMEnabled(false)
+Cartridge::Cartridge(std::filesystem::path romPath) : m_ROMBank(1), m_RAMEnabled(false)
 {
-	std::string logTxt = "Loading ROM file: " + std::string(romPath);
+	std::string logTxt = "Loading ROM file: " + romPath.string();
 	Log::LogInfo(logTxt.c_str());
 
 	std::ifstream file(romPath, std::ios::out | std::ios::binary);
@@ -20,6 +20,8 @@ Cartridge::Cartridge(const char* romPath) : m_ROMBank(1), m_RAMEnabled(false)
 		Log::LogError("Failed to open ROM file!");
 		this->m_IsValid = false;
 	}
+
+	m_SaveFile = romPath.filename().replace_extension(".sav");
 
 	// Load header and extract metadata
 	std::array<unsigned char, 0x014F> header{};
@@ -252,6 +254,23 @@ Cartridge::Cartridge(const char* romPath) : m_ROMBank(1), m_RAMEnabled(false)
 	std::string ramLogTxt = "RAM size: " + std::to_string(m_Ram.size());
 	Log::LogInfo(ramLogTxt.c_str());
 
+	// Load save file
+	if (m_Ram.size() > 0)
+	{
+		if(std::filesystem::exists(m_SaveFile))
+		{
+			std::ifstream save(m_SaveFile, std::ios::out | std::ios::binary);
+			if (!save)
+			{
+				Log::LogError("Could not open save file!");
+			}
+
+			save.seekg(0, std::ios::beg);
+			save.read(reinterpret_cast<char*> (&m_Ram[0]), m_Ram.size() * sizeof(m_Ram[0]));
+			save.close();
+		}
+	}
+
 	// Calculate the size of the rom specified in the header
 	size_t romSize = 32768 * std::pow(2, header[0x0148]);
 	this->m_Rom.resize(romSize);
@@ -265,10 +284,6 @@ Cartridge::Cartridge(const char* romPath) : m_ROMBank(1), m_RAMEnabled(false)
 		this->m_IsValid = false;
 		return;
 	}
-
-	//this->m_Rom.insert(this->m_Rom.begin(),
-	//	std::istream_iterator<unsigned char>(file),
-	//	std::istream_iterator<unsigned char>());
 
 	file.read(reinterpret_cast<char*> (&m_Rom[0]), (romSize - 2) * sizeof(m_Rom[0]));
 
@@ -362,6 +377,8 @@ void Cartridge::WriteU8RAM(int address, unsigned char value)
 	{
 		m_Ram[address - 0xA000] = value;
 	}
+
+	SaveGameToFile();
 }
 
 void Cartridge::WriteU16RAM(int address, unsigned short value)
@@ -373,6 +390,8 @@ void Cartridge::WriteU16RAM(int address, unsigned short value)
 		m_Ram[address - 0xA000] = value & 0xFF;
 		m_Ram[address - 0xA000 + 1] = value >> 8;
 	}
+
+	SaveGameToFile();
 }
 
 void Cartridge::WriteU16RAM(int address, unsigned char lsb, unsigned char msb)
@@ -384,6 +403,8 @@ void Cartridge::WriteU16RAM(int address, unsigned char lsb, unsigned char msb)
 		m_Ram[address - 0xA000] = lsb;
 		m_Ram[address - 0xA000 + 1] = msb;
 	}
+
+	SaveGameToFile();
 }
 
 /* Try to write in ROM to access mapper registers.
@@ -419,4 +440,20 @@ void Cartridge::SetHardware(Mapper mapper, bool ram, bool battery, bool timer, b
 	m_Hardware.hasTimer = timer;
 	m_Hardware.hasRumble = rumble;
 	m_Hardware.hasSensor = sensor;
+}
+
+void Cartridge::SaveGameToFile()
+{
+	std::ofstream save(m_SaveFile, std::ios::out | std::ios::binary);
+	if (!save)
+	{
+		Log::LogError("Could not save game!");
+	}
+
+	for (size_t i = 0; i < m_Ram.size(); i++)
+	{
+		save << m_Ram[i];
+	}
+
+	save.close();
 }

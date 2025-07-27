@@ -1,6 +1,8 @@
 #pragma once
+
 #include <vector>
 #include <string>
+#include <filesystem>
 
 enum class Mapper
 {
@@ -20,7 +22,7 @@ struct CartridgeHardware
 class Cartridge
 {
 public:
-	Cartridge(const char* romPath);
+	Cartridge(std::filesystem::path romPath);
 
 	inline bool IsValid() { return m_IsValid; }
 	inline Mapper GetMapper() { return m_Hardware.mapper; }
@@ -41,6 +43,7 @@ private:
 	std::vector<unsigned char> m_Rom;
 	std::vector<unsigned char> m_Ram;
 	std::string m_CartName;
+	std::filesystem::path m_SaveFile;
 	CartridgeHardware m_Hardware;
 
 	unsigned char m_ROMBank;
@@ -50,4 +53,5 @@ private:
 
 	void SetHardware(Mapper mapper, bool ram, bool battery, bool timer, bool rumble, bool sensor);
 
+	void SaveGameToFile();
 };

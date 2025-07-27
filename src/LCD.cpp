@@ -21,6 +21,9 @@ LCD::~LCD()
 {
 	SDL_DestroySurface(m_Surface);
 	SDL_DestroySurface(m_Screen);
+
+	m_Surface = nullptr;
+	m_Screen = nullptr;
 }
 
 /* Set window and create SDL_Surface used for rendering.
