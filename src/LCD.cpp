@@ -127,7 +127,7 @@ void LCD::DrawScanline(int LY)
 			int colorIndex = m_Mem->ReadU8(0xFF47);
 			int paletteColor = m_Palette[(colorIndex >> (color * 2)) & 0b11];
 
-			if (x >= 0 && x < 160 && colorIndex == 0)
+			if (x >= 0 && x < 160 && color == 0)
 				m_SpritePriorityMask[x] = true;
 
 			int r = (paletteColor & 0xFF0000) >> 16;
@@ -190,7 +190,7 @@ void LCD::DrawScanline(int LY)
 				int colorIndex = m_Mem->ReadU8(0xFF47);
 				int paletteColor = m_Palette[(colorIndex >> (color * 2)) & 0b11];
 
-				if (x >= 0 && x < 160 && colorIndex == 0)
+				if (x >= 0 && x < 160 && color == 0)
 					m_SpritePriorityMask[x] = true;
 
 				int r = (paletteColor & 0xFF0000) >> 16;
@@ -244,7 +244,7 @@ void LCD::DrawScanline(int LY)
 			unsigned char color = 0;
 			color = (GetBit(msb, pixelIteration) << 1) | GetBit(lsb, pixelIteration);
 
-			bool prioritySkip = priority && m_SpritePriorityMask[x];
+			bool prioritySkip = priority && !m_SpritePriorityMask[x];
 			// Color 0 is used for transparency, ignore it
 			if (color > 0 && !prioritySkip)
 			{
