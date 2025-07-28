@@ -154,7 +154,8 @@ void LCD::DrawScanline(int LY)
 			int verticalLine = (screenY % 8);
 
 			int tileX = std::floor(x / 8.0f);
-			if (WX < 7) tileX++;
+			if (WX < 7)
+				tileX++;
 
 			int tilemapAddress = GetBit(LCDC, 6) ? 0x9C00 : 0x9800;
 			unsigned char tileId = m_Mem->ReadU8Unfiltered((tilemapAddress + tileX) + (32 * tileY));
@@ -219,15 +220,22 @@ void LCD::DrawScanline(int LY)
 		unsigned char tileIndex = m_Mem->ReadU8Unfiltered(baseAddress + 2);
 		unsigned char flags = m_Mem->ReadU8Unfiltered(baseAddress + 3);
 
-		// Sprites are 8x16 instead of 8x8
-		if (GetBit(LCDC, 2) && (LY - y) >= 8)
-		{
-			tileIndex++;
-		}
-
 		bool yFlip = GetBit(flags, 6);
 		bool xFlip = GetBit(flags, 5);
 		bool priority = GetBit(flags, 7);
+
+		// Sprites are 8x16 instead of 8x8
+		if (GetBit(LCDC, 2))
+		{
+			if (yFlip && (LY - y) < 8)
+			{
+				tileIndex++;
+			}
+			else if (!yFlip && (LY - y) >= 8)
+			{
+				tileIndex++;
+			}
+		}
 
 		int verticalLine = yFlip ? std::abs(((LY - y) % 8) - 7) : (LY - y) % 8;
 		unsigned char lsb = m_Mem->ReadU8Unfiltered(0x8000 + (verticalLine * 2) + tileIndex * 16);
