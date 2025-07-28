@@ -150,7 +150,7 @@ void GameBoy::Update()
 	m_PPU.Render();
 	m_CycleCount = 0;
 
-	// Limit FPS to ~60 (Gameboy runs slightly slower than 60Hz)
+	// Limit FPS to ~60 (GameBoy runs slightly slower than 60 FPS)
 	SDL_Time endTime;
 	SDL_GetCurrentTime(&endTime);
 

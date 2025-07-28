@@ -25,7 +25,7 @@ void PPU::Tick(int cycles)
 		m_Mem->UnlockVRAM();
 
 		// Set STAT to mode 0
-		m_Mem->WriteU8Unfiltered(0xFF41, m_Mem->ReadU8(0xFF41) & 0b11111100); 
+		m_Mem->WriteU8Unfiltered(0xFF41, m_Mem->ReadU8(0xFF41) & 0b11111100);
 		m_LCD.DisableLCD();
 		return;
 	}
@@ -42,10 +42,11 @@ void PPU::Tick(int cycles)
 
 	switch (m_Mode)
 	{
-	case 0: // H-Blank
+	// H-Blank
+	case 0: 
 		if (m_Clock >= 204)
 		{
-			m_Clock = 0;
+			m_Clock -= 204;
 
 			IncrementLY();
 
@@ -61,7 +62,12 @@ void PPU::Tick(int cycles)
 					HandleSTAT();
 				}
 				else
+				{
 					m_Mode1STAT = false;
+					HandleSTAT();
+				}
+
+				m_Clock++;
 
 				// V-Blank interrupt
 				m_Mem->WriteU8Unfiltered(0xFF0F, m_Mem->ReadU8(0xFF0F) | 0b1);
@@ -78,19 +84,23 @@ void PPU::Tick(int cycles)
 					HandleSTAT();
 				}
 				else
+				{
 					m_Mode2STAT = false;
+					HandleSTAT();
+				}
 			}
 		}
 		break;
 
-	case 1:					// V-Blank
-		if (m_Clock >= 456) // One scanline's time
+	// V-Blank
+	case 1:
+		if (m_Clock % 456 == 0) // One scanline's time
 			IncrementLY();
 
 		if (m_Clock >= 4560)
 		{
 			// Reset clock counter & LY
-			m_Clock = 0;
+			m_Clock -= 4560;
 			m_Mem->WriteU8(0xFF44, 0);
 
 			m_Mem->LockOAM();
@@ -104,11 +114,15 @@ void PPU::Tick(int cycles)
 				HandleSTAT();
 			}
 			else
+			{
 				m_Mode2STAT = false;
+				HandleSTAT();
+			}
 		}
 		break;
 
-	case 2: // OAM Scan
+	// OAM Scan
+	case 2: 
 		m_Mem->LockOAM();
 
 		if (m_Clock >= 80)
@@ -122,7 +136,7 @@ void PPU::Tick(int cycles)
 
 			// Get sprites if enabled for this scanline
 			if (((LCDC >> 1) & 0b1) == true)
-			{ 
+			{
 				// If sprites are 16 pixels tall, consider that as the Y offset for the check
 				int spriteYOffset = GetBit(LCDC, 2) ? 16 : 8;
 
@@ -144,7 +158,7 @@ void PPU::Tick(int cycles)
 			}
 			m_LCD.SetSprites(spriteArray);
 
-			m_Clock = 0;
+			m_Clock -= 80;
 			m_Mode = 3;
 
 			m_Mem->WriteU8Unfiltered(0xFF41, (m_Mem->ReadU8(0xFF41) & 0b11111100) | 0b11); // Set STAT register flag
@@ -154,7 +168,8 @@ void PPU::Tick(int cycles)
 
 		break;
 
-	case 3: // Scanline draw
+	// Scanline draw
+	case 3: 
 		m_Mem->LockOAM();
 		m_Mem->LockVRAM();
 
@@ -162,7 +177,7 @@ void PPU::Tick(int cycles)
 		{
 			m_LCD.DrawScanline(m_Mem->ReadU8(0xFF44));
 
-			m_Clock = 0;
+			m_Clock -= 172;
 			m_Mode = 0;
 
 			m_Mem->WriteU8Unfiltered(0xFF41, m_Mem->ReadU8(0xFF41) & 0b11111100); // Set STAT register flag
@@ -173,7 +188,10 @@ void PPU::Tick(int cycles)
 				HandleSTAT();
 			}
 			else
+			{
 				m_Mode0STAT = false;
+				HandleSTAT();
+			}
 
 			m_Mem->UnlockOAM();
 			m_Mem->UnlockVRAM();
@@ -274,6 +292,7 @@ void PPU::IncrementLY()
 	else
 	{
 		m_LYCSTAT = false;
+		HandleSTAT();
 		m_Mem->WriteU8Unfiltered(0xFF41, m_Mem->ReadU8(0xFF41) & 0b11111011); // Disable STAT register flag
 	}
 }

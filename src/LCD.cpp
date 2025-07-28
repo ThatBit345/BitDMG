@@ -80,84 +80,22 @@ void LCD::DrawScanline(int LY)
 
 	m_SpritePriorityMask.fill(false);
 
-	// Draw BG
-	for (int i = 0; i < 21; i++)
+	if (GetBit(LCDC, 0))
 	{
-		int scrolledY = (SCY + LY) % 256;
-		// int scrolledY = LY;
-		int tileY = std::floor(scrolledY / 8.0f);
-		int verticalLine = (scrolledY % 8);
-
-		int scrolledX = (SCX + (i * 8)) % 256;
-
-		// int scrolledX = i * 8;
-		int tileX = std::floor(scrolledX / 8.0f);
-
-		int tilemapAddress = GetBit(LCDC, 3) ? 0x9C00 : 0x9800;
-		unsigned char tileId = m_Mem->ReadU8Unfiltered((tilemapAddress + tileX) + (32 * tileY));
-
-		unsigned char lsb;
-		unsigned char msb;
-
-		// Take into account tile indexing modes
-		if (GetBit(LCDC, 4) == false)
+		// Draw BG
+		for (int i = 0; i < 21; i++)
 		{
-			if (tileId < 128)
-			{
-				lsb = m_Mem->ReadU8Unfiltered(0x9000 + (verticalLine * 2) + tileId * 16);
-				msb = m_Mem->ReadU8Unfiltered(0x9000 + (verticalLine * 2) + 1 + tileId * 16);
-			}
-			else
-			{
-				lsb = m_Mem->ReadU8Unfiltered(0x8800 + (verticalLine * 2) + (tileId - 128) * 16);
-				msb = m_Mem->ReadU8Unfiltered(0x8800 + (verticalLine * 2) + 1 + (tileId - 128) * 16);
-			}
-		}
-		else
-		{
-			lsb = m_Mem->ReadU8Unfiltered(0x8000 + (verticalLine * 2) + tileId * 16);
-			msb = m_Mem->ReadU8Unfiltered(0x8000 + (verticalLine * 2) + 1 + tileId * 16);
-		}
+			int scrolledY = (SCY + LY) % 256;
+			// int scrolledY = LY;
+			int tileY = std::floor(scrolledY / 8.0f);
+			int verticalLine = (scrolledY % 8);
 
-		for (int j = 7; j >= 0; j--)
-		{
-			unsigned char color = 0;
-			color = (((msb >> j) & 0b1) << 1) | ((lsb >> j) & 0b1);
+			int scrolledX = (SCX + (i * 8)) % 256;
 
-			int colorIndex = m_Mem->ReadU8(0xFF47);
-			int paletteColor = m_Palette[(colorIndex >> (color * 2)) & 0b11];
+			// int scrolledX = i * 8;
+			int tileX = std::floor(scrolledX / 8.0f);
 
-			if (x >= 0 && x < 160 && color == 0)
-				m_SpritePriorityMask[x] = true;
-
-			int r = (paletteColor & 0xFF0000) >> 16;
-			int g = (paletteColor & 0x00FF00) >> 8;
-			int b = (paletteColor & 0x0000FF);
-
-			SDL_WriteSurfacePixel(m_Surface, x, LY, r, g, b, 0xFF);
-			x++;
-		}
-	}
-
-	// Draw window
-	unsigned char WY = m_Mem->ReadU8(0xFF4A);
-	if (LY >= WY && GetBit(LCDC, 5))
-	{
-		unsigned char WX = m_Mem->ReadU8(0xFF4B);
-		// When WX is 166, the window spans the entire scanline
-		x = (WX == 166) ? 0 : WX - 7;
-
-		for (int i = 0; i < 22; i++)
-		{
-			int screenY = LY - WY;
-			int tileY = std::floor(screenY / 8.0f);
-			int verticalLine = (screenY % 8);
-
-			int tileX = std::floor(x / 8.0f);
-			if (WX < 7)
-				tileX++;
-
-			int tilemapAddress = GetBit(LCDC, 6) ? 0x9C00 : 0x9800;
+			int tilemapAddress = GetBit(LCDC, 3) ? 0x9C00 : 0x9800;
 			unsigned char tileId = m_Mem->ReadU8Unfiltered((tilemapAddress + tileX) + (32 * tileY));
 
 			unsigned char lsb;
@@ -199,9 +137,85 @@ void LCD::DrawScanline(int LY)
 				int b = (paletteColor & 0x0000FF);
 
 				SDL_WriteSurfacePixel(m_Surface, x, LY, r, g, b, 0xFF);
-
 				x++;
 			}
+		}
+
+		// Draw window
+		unsigned char WY = m_Mem->ReadU8(0xFF4A);
+		if (LY >= WY && GetBit(LCDC, 5))
+		{
+			unsigned char WX = m_Mem->ReadU8(0xFF4B);
+			// When WX is 166, the window spans the entire scanline
+			x = (WX == 166) ? 0 : WX - 7;
+
+			for (int i = 0; i < 22; i++)
+			{
+				int screenY = LY - WY;
+				int tileY = std::floor(screenY / 8.0f);
+				int verticalLine = (screenY % 8);
+
+				int tileX = std::floor(x / 8.0f);
+				if (WX < 7)
+					tileX++;
+
+				int tilemapAddress = GetBit(LCDC, 6) ? 0x9C00 : 0x9800;
+				unsigned char tileId = m_Mem->ReadU8Unfiltered((tilemapAddress + tileX) + (32 * tileY));
+
+				unsigned char lsb;
+				unsigned char msb;
+
+				// Take into account tile indexing modes
+				if (GetBit(LCDC, 4) == false)
+				{
+					if (tileId < 128)
+					{
+						lsb = m_Mem->ReadU8Unfiltered(0x9000 + (verticalLine * 2) + tileId * 16);
+						msb = m_Mem->ReadU8Unfiltered(0x9000 + (verticalLine * 2) + 1 + tileId * 16);
+					}
+					else
+					{
+						lsb = m_Mem->ReadU8Unfiltered(0x8800 + (verticalLine * 2) + (tileId - 128) * 16);
+						msb = m_Mem->ReadU8Unfiltered(0x8800 + (verticalLine * 2) + 1 + (tileId - 128) * 16);
+					}
+				}
+				else
+				{
+					lsb = m_Mem->ReadU8Unfiltered(0x8000 + (verticalLine * 2) + tileId * 16);
+					msb = m_Mem->ReadU8Unfiltered(0x8000 + (verticalLine * 2) + 1 + tileId * 16);
+				}
+
+				for (int j = 7; j >= 0; j--)
+				{
+					unsigned char color = 0;
+					color = (((msb >> j) & 0b1) << 1) | ((lsb >> j) & 0b1);
+
+					int colorIndex = m_Mem->ReadU8(0xFF47);
+					int paletteColor = m_Palette[(colorIndex >> (color * 2)) & 0b11];
+
+					if (x >= 0 && x < 160 && color == 0)
+						m_SpritePriorityMask[x] = true;
+
+					int r = (paletteColor & 0xFF0000) >> 16;
+					int g = (paletteColor & 0x00FF00) >> 8;
+					int b = (paletteColor & 0x0000FF);
+
+					SDL_WriteSurfacePixel(m_Surface, x, LY, r, g, b, 0xFF);
+
+					x++;
+				}
+			}
+		}
+	}
+	else
+	{
+		int r = (m_Palette[0] & 0xFF0000) >> 16;
+		int g = (m_Palette[0] & 0x00FF00) >> 8;
+		int b = (m_Palette[0] & 0x0000FF);
+
+		for (size_t i = 0; i < 160; i++)
+		{
+			SDL_WriteSurfacePixel(m_Surface, x, LY, r, g, b, 0xFF);
 		}
 	}
 
@@ -227,6 +241,9 @@ void LCD::DrawScanline(int LY)
 		// Sprites are 8x16 instead of 8x8
 		if (GetBit(LCDC, 2))
 		{
+			tileIndex &= 0b11111110;
+
+			// Flip the tile order if the sprite is flipped vertically
 			if (yFlip && (LY - y) < 8)
 			{
 				tileIndex++;
@@ -272,6 +289,7 @@ void LCD::DrawScanline(int LY)
 				pixelIteration++;
 			else
 				pixelIteration--;
+			
 		} while (pixelIteration <= 7 && pixelIteration >= 0);
 	}
 }
@@ -290,7 +308,7 @@ void LCD::Render()
 	if (!m_Ready)
 		return;
 
-	// ShowTiles();
+	//ShowTiles();
 	SDL_BlitSurfaceScaled(m_Surface, nullptr, m_Screen, &m_BlitRect, SDL_SCALEMODE_NEAREST);
 	SDL_UpdateWindowSurface(m_Window);
 }
