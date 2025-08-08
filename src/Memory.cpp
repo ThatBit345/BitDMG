@@ -7,7 +7,7 @@
 #include "Log.h"
 #include "Utils.h"
 
-Memory::Memory(std::shared_ptr<Cartridge> cart) : m_Cartridge(cart), m_VRAMLocked(false), m_OAMLocked(false)
+Memory::Memory(std::shared_ptr<Cartridge> cart) : m_Cartridge(cart), m_VramLocked(false), m_OamLocked(false)
 {
 	m_Memory.fill(0);
 
@@ -54,9 +54,6 @@ Memory::Memory(std::shared_ptr<Cartridge> cart) : m_Cartridge(cart), m_VRAMLocke
 	m_Memory[0xFFFF] = 0x00; // IE
 }
 
-/* Get 8-bit value.
- *  [address] -> Memory address to read
- */
 unsigned char Memory::ReadU8(unsigned short address)
 {
 	// Cartridge ROM
@@ -66,7 +63,7 @@ unsigned char Memory::ReadU8(unsigned short address)
 	}
 
 	// VRAM Lock
-	if (address >= 0x8000 && address <= 0x9FFF && m_VRAMLocked)
+	if (address >= 0x8000 && address <= 0x9FFF && m_VramLocked)
 	{
 		return 0xFF;
 	}
@@ -78,7 +75,7 @@ unsigned char Memory::ReadU8(unsigned short address)
 	}
 
 	// OAM Lock
-	if (address >= 0xFE00 && address <= 0xFE9F && m_OAMLocked)
+	if (address >= 0xFE00 && address <= 0xFE9F && m_OamLocked)
 	{
 		return 0xFF;
 	}
@@ -86,7 +83,7 @@ unsigned char Memory::ReadU8(unsigned short address)
 	// Prohibited area
 	if (address >= 0xFEA0 && address <= 0xFEFF)
 	{
-		return m_OAMLocked ? 0xFF : 0x00;
+		return m_OamLocked ? 0xFF : 0x00;
 	}
 
 	// Joypad register
@@ -105,9 +102,6 @@ unsigned char Memory::ReadU8(unsigned short address)
 	return m_Memory[address];
 }
 
-/* Get 8-bit value without considering Gameboy state.
- *  [address] -> Memory address to read
- */
 unsigned char Memory::ReadU8Unfiltered(unsigned short address)
 {
 	// Cartridge ROM
@@ -125,10 +119,6 @@ unsigned char Memory::ReadU8Unfiltered(unsigned short address)
 	return m_Memory[address];
 }
 
-/* Write 8-bit value.
- *  [address] -> Memory address to write
- *  [value] -> Value to write
- */
 void Memory::WriteU8(unsigned short address, unsigned char value)
 {
 	// Cartridge ROM -> Update mapper registers
@@ -156,13 +146,13 @@ void Memory::WriteU8(unsigned short address, unsigned char value)
 	}
 
 	// VRAM Lock
-	if (address >= 0x8000 && address <= 0x9FFF && m_VRAMLocked)
+	if (address >= 0x8000 && address <= 0x9FFF && m_VramLocked)
 	{
 		return;
 	}
 
 	// OAM Lock
-	if (address >= 0xFE00 && address <= 0xFE9F && m_OAMLocked)
+	if (address >= 0xFE00 && address <= 0xFE9F && m_OamLocked)
 	{
 		return;
 	}
@@ -189,10 +179,6 @@ void Memory::WriteU8(unsigned short address, unsigned char value)
 	}
 }
 
-/* Write 8-bit value without considering Gameboy state.
- *  [address] -> Memory address to write
- *  [value] -> Value to write
- */
 void Memory::WriteU8Unfiltered(unsigned short address, unsigned char value)
 {
 	// Cartridge ROM -> Update mapper registers
@@ -231,9 +217,6 @@ void Memory::WriteU8Unfiltered(unsigned short address, unsigned char value)
 	}
 }
 
-/* Get 16-bit value.
- *  [address] -> Memory address to read
- */
 unsigned short Memory::ReadU16(unsigned short address)
 {
 	// Cartridge ROM
@@ -243,7 +226,7 @@ unsigned short Memory::ReadU16(unsigned short address)
 	}
 
 	// VRAM Lock
-	if (address >= 0x8000 && address <= 0x9FFF && m_VRAMLocked)
+	if (address >= 0x8000 && address <= 0x9FFF && m_VramLocked)
 	{
 		return 0xFFFF;
 	}
@@ -255,7 +238,7 @@ unsigned short Memory::ReadU16(unsigned short address)
 	}
 
 	// OAM Lock
-	if (address >= 0xFE00 && address <= 0xFE9F && m_OAMLocked)
+	if (address >= 0xFE00 && address <= 0xFE9F && m_OamLocked)
 	{
 		return 0xFFFF;
 	}
@@ -263,7 +246,7 @@ unsigned short Memory::ReadU16(unsigned short address)
 	// Prohibited area
 	if (address >= 0xFEA0 && address <= 0xFEFF)
 	{
-		return m_OAMLocked ? 0x00FF : 0x0000;
+		return m_OamLocked ? 0x00FF : 0x0000;
 	}
 
 	unsigned char lsb = m_Memory[address];
@@ -272,10 +255,6 @@ unsigned short Memory::ReadU16(unsigned short address)
 	return ((unsigned short)msb << 8) | lsb;
 }
 
-/* Write 16-bit value.
- *  [address] -> Memory address to write
- *  [value] -> Value to write
- */
 void Memory::WriteU16(unsigned short address, unsigned short value)
 {
 	unsigned char lsb = (unsigned char)value;
@@ -288,7 +267,7 @@ void Memory::WriteU16(unsigned short address, unsigned short value)
 	}
 
 	// VRAM Lock
-	if (address >= 0x8000 && address <= 0x9FFF && m_VRAMLocked)
+	if (address >= 0x8000 && address <= 0x9FFF && m_VramLocked)
 	{
 		return;
 	}
@@ -301,7 +280,7 @@ void Memory::WriteU16(unsigned short address, unsigned short value)
 	}
 
 	// OAM Lock
-	if (address >= 0xFE00 && address <= 0xFE9F && m_OAMLocked)
+	if (address >= 0xFE00 && address <= 0xFE9F && m_OamLocked)
 	{
 		return;
 	}
@@ -317,11 +296,6 @@ void Memory::WriteU16(unsigned short address, unsigned short value)
 	}
 }
 
-/* Write 8-bit value.
- *  [address] -> Memory address to write
- *  [lsb] -> Least significant bit of the value to write
- *  [msb] -> Most significant bit of the value to write
- */
 void Memory::WriteU16(unsigned short address, unsigned char lsb, unsigned char msb)
 {
 	// Cartridge ROM, forbidden
@@ -331,7 +305,7 @@ void Memory::WriteU16(unsigned short address, unsigned char lsb, unsigned char m
 	}
 
 	// VRAM Lock
-	if (address >= 0x8000 && address <= 0x9FFF && m_VRAMLocked)
+	if (address >= 0x8000 && address <= 0x9FFF && m_VramLocked)
 	{
 		return;
 	}
@@ -344,7 +318,7 @@ void Memory::WriteU16(unsigned short address, unsigned char lsb, unsigned char m
 	}
 
 	// OAM Lock
-	if (address >= 0xFE00 && address <= 0xFE9F && m_OAMLocked)
+	if (address >= 0xFE00 && address <= 0xFE9F && m_OamLocked)
 	{
 		return;
 	}
@@ -360,10 +334,6 @@ void Memory::WriteU16(unsigned short address, unsigned char lsb, unsigned char m
 	}
 }
 
-/* Write 16-bit value without considering Gameboy state.
- *  [address] -> Memory address to write
- *  [value] -> Value to write
- */
 void Memory::WriteU16Unfiltered(unsigned short address, unsigned char value)
 {
 	unsigned char lsb = (unsigned char)value;
@@ -388,10 +358,6 @@ void Memory::WriteU16Unfiltered(unsigned short address, unsigned char value)
 	}
 }
 
-/* Write 16-bit value to the stack.
- *  [address] -> Memory address to write
- *  [value] -> Value to write
- */
 void Memory::WriteU16Stack(unsigned short address, unsigned short value)
 {
 	unsigned char lsb = (unsigned char)value;
@@ -404,13 +370,13 @@ void Memory::WriteU16Stack(unsigned short address, unsigned short value)
 	}
 
 	// VRAM Lock
-	if (address >= 0x8000 && address <= 0x9FFF && m_VRAMLocked)
+	if (address >= 0x8000 && address <= 0x9FFF && m_VramLocked)
 	{
 		return;
 	}
 
 	// OAM Lock
-	if (address >= 0xFE00 && address <= 0xFE9F && m_OAMLocked)
+	if (address >= 0xFE00 && address <= 0xFE9F && m_OamLocked)
 	{
 		return;
 	}
@@ -428,22 +394,22 @@ void Memory::WriteU16Stack(unsigned short address, unsigned short value)
 
 void Memory::LockVRAM()
 {
-	m_VRAMLocked = true;
+	m_VramLocked = true;
 }
 
 void Memory::UnlockVRAM()
 {
-	m_VRAMLocked = false;
+	m_VramLocked = false;
 }
 
 void Memory::LockOAM()
 {
-	m_OAMLocked = true;
+	m_OamLocked = true;
 }
 
 void Memory::UnlockOAM()
 {
-	m_OAMLocked = false;
+	m_OamLocked = false;
 }
 
 void Memory::UpdateInputState(bool buffer[8])
@@ -454,8 +420,6 @@ void Memory::UpdateInputState(bool buffer[8])
 	}
 }
 
-/* Update the joypad register ($FF00 - P1) with data from m_InputBuffer
- */
 void Memory::UpdateInputRegister()
 {
 	unsigned char P1 = m_Memory[0xFF00];

@@ -11,9 +11,6 @@ PPU::PPU(std::shared_ptr<Memory> memory) : m_Clock(0), m_Mode(0), m_LCD(memory),
 	m_Mem = memory;
 }
 
-/* Tick PPU by the CPU cycle count (keeping them synced).
- * [cycles] -> CPU T-Cycles taken during last operation
- */
 void PPU::Tick(int cycles)
 {
 	unsigned char LCDC = m_Mem->ReadU8(0xFF40);
@@ -201,8 +198,6 @@ void PPU::Tick(int cycles)
 	}
 }
 
-/* Print tiles to console using characters: " , ░, ▓, █".
- */
 void PPU::PrintTiles()
 {
 	for (int i = 0; i < 6143; i++)
@@ -237,23 +232,16 @@ void PPU::PrintTiles()
 	Log::LogCustom("Finished VRAM tile data dump", "PPU");
 }
 
-/* Set window for rendering.
- *  [window] -> Window in which to render
- */
 void PPU::ConfigureLCD(SDL_Window *window)
 {
 	m_LCD.SetWindow(window);
 }
 
-/* Render to window.
- */
 void PPU::Render()
 {
 	m_LCD.Render();
 }
 
-/* Handle STAT register's interrupts.
- */
 void PPU::HandleSTAT()
 {
 	// Request interrupt if STAT line was LOW but one of the inputs just changed to HIGH
@@ -267,8 +255,6 @@ void PPU::HandleSTAT()
 	m_STAT = m_LYCSTAT || m_Mode2STAT || m_Mode1STAT || m_Mode0STAT;
 }
 
-/* Increment LY register and handle STAT flags.
- */
 void PPU::IncrementLY()
 {
 	unsigned char LY = m_Mem->ReadU8(0xFF44) + 1;

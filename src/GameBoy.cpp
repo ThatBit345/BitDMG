@@ -43,8 +43,6 @@ GameBoy::GameBoy(std::filesystem::path romPath, SDL_Window *window) : m_CPU(null
 	Log::LogInfo("Emulator started succesfully!");
 }
 
-/* Execute the Gameboy game for one frame.
- */
 void GameBoy::Update()
 {
 	SDL_Time startTime;
@@ -163,23 +161,16 @@ void GameBoy::Update()
 	}
 }
 
-/* Check that the Gameboy has all required components to run.
- */
 bool GameBoy::IsValid()
 {
 	return m_Valid;
 }
 
-/* Return if the Gameboy emulator is running (CPU didn't encounter any errors).
- */
 bool GameBoy::IsRunning()
 {
 	return m_Running;
 }
 
-/* Handle DIV and TIMA timers and request their interrupts.
- *  [mCycles] -> CPU M-Cycles taken during last operation
- */
 void GameBoy::HandleTimer(int mCycles)
 {
 	// Divider

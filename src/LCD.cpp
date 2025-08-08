@@ -26,9 +26,6 @@ LCD::~LCD()
 	m_Screen = nullptr;
 }
 
-/* Set window and create SDL_Surface used for rendering.
- *  [window] -> Window in which to render the Gameboy's LCD
- */
 void LCD::SetWindow(SDL_Window *window)
 {
 	m_Window = window;
@@ -50,26 +47,16 @@ void LCD::SetWindow(SDL_Window *window)
 	m_Ready = true;
 }
 
-/* Returns if the LCD is ready for rendering.
- *  (LCD might not be ready because it is missing the window)
- */
 bool LCD::IsReady()
 {
 	return m_Ready;
 }
 
-/* Set sprites during OAM scan for rendering next scanline.
- *  [sprites] -> Array with the 10 selected sprites
- */
 void LCD::SetSprites(std::array<int, 10> &sprites)
 {
 	m_Sprites = sprites;
 }
 
-/* Draw scanline to internal surface.
- *  TO-DO: 8x16 Sprites
- *  [LY] -> Line to render (present at memory address $FF44)
- */
 void LCD::DrawScanline(int LY)
 {
 	unsigned char LCDC = m_Mem->ReadU8(0xFF40);
@@ -294,15 +281,11 @@ void LCD::DrawScanline(int LY)
 	}
 }
 
-/* Set the internal surface's color to the lightest color.
- */
 void LCD::DisableLCD()
 {
 	SDL_FillSurfaceRect(m_Surface, NULL, m_Palette[0]);
 }
 
-/* Blit the internal surface to the window's surface and update it.
- */
 void LCD::Render()
 {
 	if (!m_Ready)
@@ -313,8 +296,6 @@ void LCD::Render()
 	SDL_UpdateWindowSurface(m_Window);
 }
 
-/* Show tile banks 0-2 on screen (write them to the internal surface).
- */
 void LCD::ShowTiles()
 {
 	int x = 0;

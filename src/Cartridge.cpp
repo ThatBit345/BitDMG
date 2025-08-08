@@ -9,7 +9,7 @@
 #include "Log.h"
 #include <cmath>
 
-Cartridge::Cartridge(std::filesystem::path romPath) : m_ROMBank(1), m_RAMEnabled(false)
+Cartridge::Cartridge(std::filesystem::path romPath) : m_RomBank(1), m_RamEnabled(false)
 {
 	std::string logTxt = "Loading ROM file: " + romPath.string();
 	Log::LogInfo(logTxt.c_str());
@@ -303,9 +303,6 @@ Cartridge::Cartridge(std::filesystem::path romPath) : m_ROMBank(1), m_RAMEnabled
 	this->m_IsValid = true;
 }
 
-/* Return the byte at the address in cartridge ROM (takes into account memory banking)
-*  [address] -> Memory address to access
-*/
 unsigned char Cartridge::ReadU8(int address)
 {
 	if (m_Hardware.mapper == Mapper::MBC1)
@@ -313,16 +310,13 @@ unsigned char Cartridge::ReadU8(int address)
 		if(address < 0x4000) 
 			return m_Rom[address];
 
-		int bankedAddress = (address - 0x4000) + (m_ROMBank * 0x4000);
+		int bankedAddress = (address - 0x4000) + (m_RomBank * 0x4000);
 		return m_Rom[bankedAddress];
 	}
 	
 	return m_Rom[address];
 }
 
-/* Return two bytes starting at the address in cartridge ROM (takes into account memory banking)
-*  [address] -> Memory address to access
-*/
 unsigned short Cartridge::ReadU16(int address)
 {
 	if (m_Hardware.mapper == Mapper::MBC1)
@@ -335,7 +329,7 @@ unsigned short Cartridge::ReadU16(int address)
 			return ((unsigned short)msb << 8) | lsb;
 		}
 
-		int bankedAddress = (address - 0x4000) + (m_ROMBank * 0x4000);
+		int bankedAddress = (address - 0x4000) + (m_RomBank * 0x4000);
 
 		unsigned char lsb = m_Rom[bankedAddress];
 		unsigned char msb = m_Rom[bankedAddress + 1];
@@ -351,7 +345,7 @@ unsigned short Cartridge::ReadU16(int address)
 
 unsigned char Cartridge::ReadU8RAM(int address)
 {
-	if(!m_RAMEnabled) return 0xFF;
+	if(!m_RamEnabled) return 0xFF;
 
 	if(m_Hardware.mapper == Mapper::MBC1)
 	{
@@ -371,7 +365,7 @@ unsigned char Cartridge::ReadU16RAM(int address)
 
 void Cartridge::WriteU8RAM(int address, unsigned char value)
 {
-	if(!m_RAMEnabled) return;
+	if(!m_RamEnabled) return;
 
 	if(m_Hardware.mapper == Mapper::MBC1)
 	{
@@ -383,7 +377,7 @@ void Cartridge::WriteU8RAM(int address, unsigned char value)
 
 void Cartridge::WriteU16RAM(int address, unsigned short value)
 {
-	if(!m_RAMEnabled) return;
+	if(!m_RamEnabled) return;
 
 	if(m_Hardware.mapper == Mapper::MBC1)
 	{
@@ -396,7 +390,7 @@ void Cartridge::WriteU16RAM(int address, unsigned short value)
 
 void Cartridge::WriteU16RAM(int address, unsigned char lsb, unsigned char msb)
 {
-	if(!m_RAMEnabled) return;
+	if(!m_RamEnabled) return;
 
 	if(m_Hardware.mapper == Mapper::MBC1)
 	{
@@ -407,21 +401,17 @@ void Cartridge::WriteU16RAM(int address, unsigned char lsb, unsigned char msb)
 	SaveGameToFile();
 }
 
-/* Try to write in ROM to access mapper registers.
-*  [address] -> Memory address to write to
-*  [value] -> Value to write at address
-*/
 void Cartridge::CheckROMWrite(int address, unsigned char value)
 {
 	if(m_Hardware.mapper == Mapper::MBC1)
 	{
 		if(address <= 0x1FFF) // RAM Enable
 		{
-			m_RAMEnabled = (value & 0b1111) == 0xA;
+			m_RamEnabled = (value & 0b1111) == 0xA;
 		}
 		else if (address >= 0x2000 && address <= 0x3FFF) // ROM Bank switch
 		{
-			m_ROMBank = (value == 0) ? 1 : (value & 0b00011111);
+			m_RomBank = (value == 0) ? 1 : (value & 0b00011111);
 		}
 		else if (address >= 0x4000 && address <= 0x5FFF && m_Rom[0x0148] >= 0x05) // Second RAM/ROM Bank switch (only if ROM > 1MiB)
 		{
@@ -430,8 +420,6 @@ void Cartridge::CheckROMWrite(int address, unsigned char value)
 	}
 }
 
-/* Set mapper and internal cartridge addons (ram, battery, timer, rumble & sensor).
-*/
 void Cartridge::SetHardware(Mapper mapper, bool ram, bool battery, bool timer, bool rumble, bool sensor)
 {
 	m_Hardware.mapper = mapper;

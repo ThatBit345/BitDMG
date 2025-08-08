@@ -27,8 +27,6 @@ CPU::CPU(std::shared_ptr<Memory> memory) : m_SP(0xFFFE), m_PC(0x0100), m_Halted(
 	m_Mem = memory;
 }
 
-/* Cycle the CPU to run the next opcode, returns how many M-Cycles the operation has taken.
-*/
 int CPU::Cycle()
 {
 	int cycles = 0;
@@ -223,8 +221,6 @@ int CPU::Cycle()
 	return cycles;
 }
 
-/* Check IE & IF to see if there are any pending interrupts & go to the corresponding handler if requested.
-*/
 int CPU::CheckInterrupts()
 {
 	unsigned char IE = m_Mem->ReadU8(0xFFFF);
@@ -262,10 +258,6 @@ int CPU::CheckInterrupts()
 	return 0;
 }
 
-/* Set value to 8-bit register.
-*  [reg] -> Register ID (B, C, D, E, H, L, memory at HL, A)
-*  [value] -> Value to write to register
-*/
 void CPU::SetR8(unsigned char reg, unsigned char value)
 {
 	switch (reg)
@@ -303,9 +295,7 @@ void CPU::SetR8(unsigned char reg, unsigned char value)
 		break;
 	}
 }
-/* Get value at 8-bit register.
-*  [reg] -> Register ID (B, C, D, E, H, L, memory at HL, A)
-*/
+
 unsigned char CPU::GetR8(unsigned char reg)
 {
 	switch (reg)
@@ -338,10 +328,6 @@ unsigned char CPU::GetR8(unsigned char reg)
 	return -1;
 }
 
-/* Set value to 16-bit register.
-*  [reg] -> Register ID (BC, DE, HL, SP)
-*  [value] -> Value to write to register
-*/
 void CPU::SetR16(unsigned char reg, unsigned short value)
 {
 	switch (reg)
@@ -364,9 +350,6 @@ void CPU::SetR16(unsigned char reg, unsigned short value)
 	}
 }
 
-/* Set value to 16-bit register.
-*  [reg] -> Register ID (BC, DE, HL, SP)
-*/
 unsigned short CPU::GetR16(unsigned char reg)
 {
 	switch (reg)
@@ -387,8 +370,6 @@ unsigned short CPU::GetR16(unsigned char reg)
 	return -1;
 }
 
-/* Log CPU state to file.
-*/
 void CPU::Log()
 {
 	std::clog << std::hex << std::uppercase <<
@@ -455,8 +436,6 @@ unsigned short CPU::GetHL()
 }
 #pragma endregion
 
-/* Check if opcode is in valid region.
-*/
 bool CPU::IsValidOpcode(unsigned char opcode)
 {
 	return opcode != 0xD3 &&
@@ -472,8 +451,6 @@ bool CPU::IsValidOpcode(unsigned char opcode)
 		opcode != 0xFD;
 }
 
-/* Stop execution and print opcode.
-*/
 int CPU::UninplementedOpcode(int opcode)
 {
 	// Print error to console
