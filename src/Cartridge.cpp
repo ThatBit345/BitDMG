@@ -224,6 +224,11 @@ Cartridge::Cartridge(std::filesystem::path romPath) : m_RomBank(1), m_RamEnabled
 
 		SetHardware(Mapper::HuC1, true, true, false, false, false);
 		break;
+
+	default:
+		Log::LogError("Mapper not recognized");
+		m_IsValid = false;
+		return;
 	}
 
 	// Set RAM size
@@ -255,7 +260,7 @@ Cartridge::Cartridge(std::filesystem::path romPath) : m_RomBank(1), m_RamEnabled
 	Log::LogInfo(ramLogTxt.c_str());
 
 	// Load save file
-	if (m_Ram.size() > 0)
+	if (m_Hardware.hasRam)
 	{
 		if(std::filesystem::exists(m_SaveFile))
 		{

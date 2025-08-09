@@ -12,46 +12,46 @@ Memory::Memory(std::shared_ptr<Cartridge> cart) : m_Cartridge(cart), m_VramLocke
 	m_Memory.fill(0);
 
 	// Mimic hardware register's state after boot ROM
-	m_Memory[0xFF00] = 0xCF; // P1
-	m_Memory[0xFF01] = 0x00; // SB
-	m_Memory[0xFF02] = 0x7E; // SC
-	m_Memory[0xFF04] = 0x18; // DIV
-	m_Memory[0xFF05] = 0x00; // TIMA
-	m_Memory[0xFF06] = 0x00; // TMA
-	m_Memory[0xFF07] = 0xF8; // TAC
-	m_Memory[0xFF0F] = 0xE1; // IF
-	m_Memory[0xFF10] = 0x80; // NR10
-	m_Memory[0xFF11] = 0xBF; // NR11
-	m_Memory[0xFF12] = 0xF3; // NR12
-	m_Memory[0xFF13] = 0xFF; // NR13
-	m_Memory[0xFF14] = 0xBF; // NR14
-	m_Memory[0xFF16] = 0x3F; // NR21
-	m_Memory[0xFF17] = 0x00; // NR22
-	m_Memory[0xFF18] = 0xFF; // NR23
-	m_Memory[0xFF19] = 0xBF; // NR24
-	m_Memory[0xFF1A] = 0x7F; // NR30
-	m_Memory[0xFF1B] = 0xFF; // NR31
-	m_Memory[0xFF1C] = 0x9F; // NR32
-	m_Memory[0xFF1D] = 0xFF; // NR33
-	m_Memory[0xFF1E] = 0xBF; // NR34
-	m_Memory[0xFF20] = 0xFF; // NR41
-	m_Memory[0xFF21] = 0x00; // NR42
-	m_Memory[0xFF22] = 0x00; // NR43
-	m_Memory[0xFF23] = 0xBF; // NR44
-	m_Memory[0xFF24] = 0x77; // NR50
-	m_Memory[0xFF25] = 0xF3; // NR51
-	m_Memory[0xFF26] = 0xF1; // NR52
-	m_Memory[0xFF40] = 0x91; // LCDC
-	m_Memory[0xFF41] = 0x81; // STAT
-	m_Memory[0xFF42] = 0x00; // SCY
-	m_Memory[0xFF43] = 0x00; // SCX
-	m_Memory[0xFF44] = 0x91; // LY
-	m_Memory[0xFF45] = 0x00; // LYC
-	m_Memory[0xFF46] = 0xFF; // DMA
-	m_Memory[0xFF47] = 0xFC; // BGP
-	m_Memory[0xFF4A] = 0x00; // WY
-	m_Memory[0xFF4B] = 0x00; // WX
-	m_Memory[0xFFFF] = 0x00; // IE
+	m_Memory[IO::JOY] = 0xCF;
+	m_Memory[IO::SB] = 0x00; 
+	m_Memory[IO::SC] = 0x7E; 
+	m_Memory[IO::DIV] = 0x18;
+	m_Memory[IO::TIMA] = 0x00; 
+	m_Memory[IO::TMA] = 0x00; 
+	m_Memory[IO::TAC] = 0xF8; 
+	m_Memory[IO::IF] = 0xE1;
+	m_Memory[IO::NR10] = 0x80; 
+	m_Memory[IO::NR11] = 0xBF; 
+	m_Memory[IO::NR12] = 0xF3; 
+	m_Memory[IO::NR13] = 0xFF; 
+	m_Memory[IO::NR14] = 0xBF; 
+	m_Memory[IO::NR21] = 0x3F; 
+	m_Memory[IO::NR22] = 0x00; 
+	m_Memory[IO::NR23] = 0xFF; 
+	m_Memory[IO::NR24] = 0xBF; 
+	m_Memory[IO::NR30] = 0x7F; 
+	m_Memory[IO::NR31] = 0xFF; 
+	m_Memory[IO::NR32] = 0x9F; 
+	m_Memory[IO::NR33] = 0xFF; 
+	m_Memory[IO::NR34] = 0xBF; 
+	m_Memory[IO::NR41] = 0xFF; 
+	m_Memory[IO::NR42] = 0x00; 
+	m_Memory[IO::NR43] = 0x00; 
+	m_Memory[IO::NR44] = 0xBF; 
+	m_Memory[IO::NR50] = 0x77; 
+	m_Memory[IO::NR51] = 0xF3; 
+	m_Memory[IO::NR52] = 0xF1; 
+	m_Memory[IO::LCDC] = 0x91; 
+	m_Memory[IO::STAT] = 0x81; 
+	m_Memory[IO::SCY] = 0x00; 
+	m_Memory[IO::SCX] = 0x00; 
+	m_Memory[IO::LY] = 0x91; 
+	m_Memory[IO::LYC] = 0x00; 
+	m_Memory[IO::DMA] = 0xFF; 
+	m_Memory[IO::BGP] = 0xFC; 
+	m_Memory[IO::WY] = 0x00; 
+	m_Memory[IO::WX] = 0x00; 
+	m_Memory[IO::IE] = 0x00; 
 }
 
 unsigned char Memory::ReadU8(unsigned short address)
@@ -87,14 +87,14 @@ unsigned char Memory::ReadU8(unsigned short address)
 	}
 
 	// Joypad register
-	if (address == 0xFF00)
+	if (address == IO::JOY)
 	{
 		UpdateInputRegister();
 		return m_Memory[address];
 	}
 
 	// Serial
-	if (address == 0xFF01)
+	if (address == IO::SB)
 	{
 		return 0xFF;
 	}
@@ -139,9 +139,9 @@ void Memory::WriteU8(unsigned short address, unsigned char value)
 	// if (address == 0xFF01) Log::LogCustom((char*)&value, "SERIAL OUT");
 
 	// Trap the timer's DIV register
-	if (address == 0xFF04)
+	if (address == IO::DIV)
 	{
-		m_Memory[0xFF04] = 0x00;
+		m_Memory[IO::DIV] = 0x00;
 		return;
 	}
 
@@ -158,7 +158,7 @@ void Memory::WriteU8(unsigned short address, unsigned char value)
 	}
 
 	// DMA Transfer
-	if (address == 0xFF46)
+	if (address == IO::DMA)
 	{
 		unsigned short source = value * 0x100;
 
@@ -196,7 +196,7 @@ void Memory::WriteU8Unfiltered(unsigned short address, unsigned char value)
 	}
 
 	// DMA Transfer
-	if (address == 0xFF46)
+	if (address == IO::DMA)
 	{
 		unsigned short source = value * 0x100;
 
@@ -412,6 +412,11 @@ void Memory::UnlockOAM()
 	m_OamLocked = false;
 }
 
+void Memory::RequestInterrupt(InterruptType interrupt)
+{
+	WriteU8Unfiltered(IO::IF, ReadU8(IO::IF) | (1 << (int)interrupt));
+}
+
 void Memory::UpdateInputState(bool buffer[8])
 {
 	for (size_t i = 0; i < 8; i++)
@@ -422,7 +427,7 @@ void Memory::UpdateInputState(bool buffer[8])
 
 void Memory::UpdateInputRegister()
 {
-	unsigned char P1 = m_Memory[0xFF00];
+	unsigned char P1 = m_Memory[IO::JOY];
 	bool joypad5 = GetBit(P1, 5);
 	bool joypad4 = GetBit(P1, 4);
 
@@ -447,12 +452,12 @@ void Memory::UpdateInputRegister()
 		input = 0x3F;
 	}
 
-	m_Memory[0xFF00] = input;
+	m_Memory[IO::JOY] = input;
 }
 
 void Memory::HandleInputInterrupt(bool isButtons)
 {
-	unsigned char P1 = m_Memory[0xFF00];
+	unsigned char P1 = m_Memory[IO::JOY];
 
 	bool inputBits[4];
 	for (size_t i = 0; i < 4; i++)
@@ -464,7 +469,7 @@ void Memory::HandleInputInterrupt(bool isButtons)
 	{
 		if (!inputBits[i] && m_InputBuffer[i - (isButtons * 4)])
 		{
-			m_Memory[0xFF0F] = m_Memory[0xFF0F] | 0b10000;
+			RequestInterrupt(InterruptType::JOYPAD);
 		}
 	}
 }

@@ -59,9 +59,9 @@ void LCD::SetSprites(std::array<int, 10> &sprites)
 
 void LCD::DrawScanline(int LY)
 {
-	unsigned char LCDC = m_Mem->ReadU8(0xFF40);
-	unsigned char SCY = m_Mem->ReadU8(0xFF42);
-	unsigned char SCX = m_Mem->ReadU8(0xFF43);
+	unsigned char LCDC = m_Mem->ReadU8(IO::LCDC);
+	unsigned char SCY = m_Mem->ReadU8(IO::SCY);
+	unsigned char SCX = m_Mem->ReadU8(IO::SCX);
 
 	int x = -(SCX % 8);
 
@@ -113,7 +113,7 @@ void LCD::DrawScanline(int LY)
 				unsigned char color = 0;
 				color = (((msb >> j) & 0b1) << 1) | ((lsb >> j) & 0b1);
 
-				int colorIndex = m_Mem->ReadU8(0xFF47);
+				int colorIndex = m_Mem->ReadU8(IO::BGP);
 				int paletteColor = m_Palette[(colorIndex >> (color * 2)) & 0b11];
 
 				if (x >= 0 && x < 160 && color == 0)
@@ -129,10 +129,10 @@ void LCD::DrawScanline(int LY)
 		}
 
 		// Draw window
-		unsigned char WY = m_Mem->ReadU8(0xFF4A);
+		unsigned char WY = m_Mem->ReadU8(IO::WY);
 		if (LY >= WY && GetBit(LCDC, 5))
 		{
-			unsigned char WX = m_Mem->ReadU8(0xFF4B);
+			unsigned char WX = m_Mem->ReadU8(IO::WX);
 			// When WX is 166, the window spans the entire scanline
 			x = (WX == 166) ? 0 : WX - 7;
 
@@ -177,7 +177,7 @@ void LCD::DrawScanline(int LY)
 					unsigned char color = 0;
 					color = (((msb >> j) & 0b1) << 1) | ((lsb >> j) & 0b1);
 
-					int colorIndex = m_Mem->ReadU8(0xFF47);
+					int colorIndex = m_Mem->ReadU8(IO::BGP);
 					int paletteColor = m_Palette[(colorIndex >> (color * 2)) & 0b11];
 
 					if (x >= 0 && x < 160 && color == 0)
@@ -311,7 +311,7 @@ void LCD::ShowTiles()
 			unsigned char color = 0;
 			color = (GetBit(msb, j) << 1) | GetBit(lsb, j);
 
-			unsigned char colorIndex = m_Mem->ReadU8(0xFF47);
+			unsigned char colorIndex = m_Mem->ReadU8(IO::BGP);
 			int paletteColor = m_Palette[(colorIndex >> (color * 2)) & 0b11];
 
 			int r = (paletteColor & 0xFF0000) >> 16;

@@ -7,7 +7,7 @@
 
 GameBoy::GameBoy(std::filesystem::path romPath, SDL_Window *window) : m_CPU(nullptr), m_PPU(nullptr), m_Valid(true), m_Running(true), m_CycleCount(0), m_DividerCycles(0), m_TimerCycles(0)
 {
-	Log::LogInfo("BitDMG v0.7.0");
+	Log::LogInfo("BitDMG v0.7.1");
 
 	if (romPath.empty())
 	{
@@ -177,11 +177,11 @@ void GameBoy::HandleTimer(int mCycles)
 	m_DividerCycles += mCycles;
 	if (m_DividerCycles >= 64)
 	{
-		m_Memory->WriteU8Unfiltered(0xFF04, m_Memory->ReadU8(0xFF04) + 1);
+		m_Memory->WriteU8Unfiltered(IO::DIV, m_Memory->ReadU8(IO::DIV) + 1);
 	}
 
 	m_TimerCycles += mCycles;
-	unsigned char TAC = m_Memory->ReadU8(0xFF07);
+	unsigned char TAC = m_Memory->ReadU8(IO::TAC);
 	if ((TAC & 0x4) >> 2) // If timer enabled
 	{
 		int freq = 256;
@@ -207,15 +207,15 @@ void GameBoy::HandleTimer(int mCycles)
 
 		if (m_TimerCycles >= freq)
 		{
-			unsigned char TIMA = m_Memory->ReadU8(0xFF05);
+			unsigned char TIMA = m_Memory->ReadU8(IO::TIMA);
 
 			if (TIMA == 0xFF) // Timer overflow
 			{
-				m_Memory->WriteU8Unfiltered(0xFF05, m_Memory->ReadU8(0xFF06));		   // Reset to what TMA especifies
-				m_Memory->WriteU8Unfiltered(0xFF0F, m_Memory->ReadU8(0xFF0F) | 0b100); // Request interrupt
+				m_Memory->WriteU8Unfiltered(IO::TIMA, m_Memory->ReadU8(IO::TMA));		   // Reset to what TMA especifies
+				m_Memory->RequestInterrupt(InterruptType::TIMER);
 			}
 			else
-				m_Memory->WriteU8Unfiltered(0xFF05, TIMA + 1);
+				m_Memory->WriteU8Unfiltered(IO::TIMA, TIMA + 1);
 
 			m_TimerCycles -= freq;
 		}

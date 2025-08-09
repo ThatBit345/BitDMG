@@ -223,8 +223,8 @@ int CPU::Cycle()
 
 int CPU::CheckInterrupts()
 {
-	unsigned char IE = m_Mem->ReadU8(0xFFFF);
-	unsigned char IF = m_Mem->ReadU8(0xFF0F);
+	unsigned char IE = m_Mem->ReadU8(IO::IE);
+	unsigned char IF = m_Mem->ReadU8(IO::IF);
 
 	if ((IF & IE) != 0) // Interrupt pending
 	{
@@ -245,7 +245,7 @@ int CPU::CheckInterrupts()
 
 				m_IME = false;
 				IF &= ~(0b1 << i); // Invert the byte that caused this interrupt
-				m_Mem->WriteU8Unfiltered(0xFF0F, IF);
+				m_Mem->WriteU8Unfiltered(IO::IF, IF);
 
 				m_Mem->WriteU16Stack(--m_SP, m_PC);
 				m_SP--; // Adjust for the second write
@@ -813,8 +813,8 @@ int CPU::HALT()
 	m_Halted = true;
 
 	// Halt bug
-	unsigned char IE = m_Mem->ReadU8(0xFFFF);
-	unsigned char IF = m_Mem->ReadU8(0xFF0F);
+	unsigned char IE = m_Mem->ReadU8(IO::IE);
+	unsigned char IF = m_Mem->ReadU8(IO::IF);
 
 	m_HaltBug = m_IME == 0 && (IE & IF) != 0;
 

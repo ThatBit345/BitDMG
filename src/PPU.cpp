@@ -13,7 +13,7 @@ PPU::PPU(std::shared_ptr<Memory> memory) : m_Clock(0), m_Mode(0), m_LCD(memory),
 
 void PPU::Tick(int cycles)
 {
-	unsigned char LCDC = m_Mem->ReadU8(0xFF40);
+	unsigned char LCDC = m_Mem->ReadU8(IO::LCDC);
 
 	// Disable PPU
 	if (GetBit(LCDC, 7) == false)
@@ -22,7 +22,7 @@ void PPU::Tick(int cycles)
 		m_Mem->UnlockVRAM();
 
 		// Set STAT to mode 0
-		m_Mem->WriteU8Unfiltered(0xFF41, m_Mem->ReadU8(0xFF41) & 0b11111100);
+		m_Mem->WriteU8Unfiltered(IO::STAT, m_Mem->ReadU8(IO::STAT) & 0b11111100);
 		m_LCD.DisableLCD();
 		return;
 	}
@@ -32,7 +32,7 @@ void PPU::Tick(int cycles)
 	m_Clock += cycles;
 
 	// STAT Interrupt handling
-	unsigned char STAT = m_Mem->ReadU8(0xFF41);
+	unsigned char STAT = m_Mem->ReadU8(IO::STAT);
 	bool statMode2 = GetBit(STAT, 5);
 	bool statMode1 = GetBit(STAT, 4);
 	bool statMode0 = GetBit(STAT, 3);
@@ -48,10 +48,10 @@ void PPU::Tick(int cycles)
 			IncrementLY();
 
 			// Switch to V-Blank if we're at the LCD's last scanline
-			if (m_Mem->ReadU8(0xFF44) == 143)
+			if (m_Mem->ReadU8(IO::LY) == 143)
 			{
 				m_Mode = 1;
-				m_Mem->WriteU8Unfiltered(0xFF41, (m_Mem->ReadU8(0xFF41) & 0b11111100) | 0b01); // Set STAT register flag
+				m_Mem->WriteU8Unfiltered(IO::STAT, (m_Mem->ReadU8(IO::STAT & 0b11111100) | 0b01)); // Set STAT register flag
 
 				if (statMode1)
 				{
@@ -67,12 +67,12 @@ void PPU::Tick(int cycles)
 				m_Clock++;
 
 				// V-Blank interrupt
-				m_Mem->WriteU8Unfiltered(0xFF0F, m_Mem->ReadU8(0xFF0F) | 0b1);
+				m_Mem->RequestInterrupt(InterruptType::VBLANK);
 			}
 			else
 			{
 				m_Mode = 2;
-				m_Mem->WriteU8Unfiltered(0xFF41, (m_Mem->ReadU8(0xFF41) & 0b11111100) | 0b10); // Set STAT register flag
+				m_Mem->WriteU8Unfiltered(IO::STAT, (m_Mem->ReadU8(IO::STAT) & 0b11111100) | 0b10); // Set STAT register flag
 				m_Mem->LockOAM();
 
 				if (statMode2)
@@ -98,12 +98,12 @@ void PPU::Tick(int cycles)
 		{
 			// Reset clock counter & LY
 			m_Clock -= 4560;
-			m_Mem->WriteU8(0xFF44, 0);
+			m_Mem->WriteU8(IO::LY, 0);
 
 			m_Mem->LockOAM();
 
 			m_Mode = 2;
-			m_Mem->WriteU8Unfiltered(0xFF41, (m_Mem->ReadU8(0xFF41) & 0b11111100) | 0b10); // Set STAT register flag
+			m_Mem->WriteU8Unfiltered(IO::STAT, (m_Mem->ReadU8(IO::STAT) & 0b11111100) | 0b10); // Set STAT register flag
 
 			if (statMode2)
 			{
@@ -124,7 +124,7 @@ void PPU::Tick(int cycles)
 
 		if (m_Clock >= 80)
 		{
-			unsigned char LY = m_Mem->ReadU8(0xFF44);
+			unsigned char LY = m_Mem->ReadU8(IO::LY);
 
 			// Array of sprite addresses to use when drawing the scanline
 			std::array<int, 10> spriteArray;
@@ -158,7 +158,7 @@ void PPU::Tick(int cycles)
 			m_Clock -= 80;
 			m_Mode = 3;
 
-			m_Mem->WriteU8Unfiltered(0xFF41, (m_Mem->ReadU8(0xFF41) & 0b11111100) | 0b11); // Set STAT register flag
+			m_Mem->WriteU8Unfiltered(IO::STAT, (m_Mem->ReadU8(IO::STAT) & 0b11111100) | 0b11); // Set STAT register flag
 
 			m_Mem->LockVRAM();
 		}
@@ -172,12 +172,12 @@ void PPU::Tick(int cycles)
 
 		if (m_Clock >= 172)
 		{
-			m_LCD.DrawScanline(m_Mem->ReadU8(0xFF44));
+			m_LCD.DrawScanline(m_Mem->ReadU8(IO::LY));
 
 			m_Clock -= 172;
 			m_Mode = 0;
 
-			m_Mem->WriteU8Unfiltered(0xFF41, m_Mem->ReadU8(0xFF41) & 0b11111100); // Set STAT register flag
+			m_Mem->WriteU8Unfiltered(IO::STAT, m_Mem->ReadU8(IO::STAT) & 0b11111100); // Set STAT register flag
 
 			if (statMode0)
 			{
@@ -249,7 +249,7 @@ void PPU::HandleSTAT()
 
 	if (requestInterrupt)
 	{
-		m_Mem->WriteU8Unfiltered(0xFF0F, m_Mem->ReadU8(0xFF0F) | 0b10);
+		m_Mem->RequestInterrupt(InterruptType::STAT_LCD);
 	}
 
 	m_STAT = m_LYCSTAT || m_Mode2STAT || m_Mode1STAT || m_Mode0STAT;
@@ -257,14 +257,14 @@ void PPU::HandleSTAT()
 
 void PPU::IncrementLY()
 {
-	unsigned char LY = m_Mem->ReadU8(0xFF44) + 1;
-	m_Mem->WriteU8(0xFF44, LY);
+	unsigned char LY = m_Mem->ReadU8(IO::LY) + 1;
+	m_Mem->WriteU8(IO::LY, LY);
 
 	// Compare with LYC
-	unsigned char LYC = m_Mem->ReadU8(0xFF45);
+	unsigned char LYC = m_Mem->ReadU8(IO::LYC);
 	if (LYC == LY)
 	{
-		unsigned char STAT = m_Mem->ReadU8(0xFF41);
+		unsigned char STAT = m_Mem->ReadU8(IO::STAT);
 		bool statEquals = GetBit(STAT, 6);
 
 		// Set STAT line to high
@@ -273,12 +273,12 @@ void PPU::IncrementLY()
 			m_LYCSTAT = true;
 			HandleSTAT();
 		}
-		m_Mem->WriteU8Unfiltered(0xFF41, m_Mem->ReadU8(0xFF41) | 0b100); // Set STAT register flag
+		m_Mem->WriteU8Unfiltered(IO::STAT, m_Mem->ReadU8(IO::STAT) | 0b100); // Set STAT register flag
 	}
 	else
 	{
 		m_LYCSTAT = false;
 		HandleSTAT();
-		m_Mem->WriteU8Unfiltered(0xFF41, m_Mem->ReadU8(0xFF41) & 0b11111011); // Disable STAT register flag
+		m_Mem->WriteU8Unfiltered(IO::STAT, m_Mem->ReadU8(IO::STAT) & 0b11111011); // Disable STAT register flag
 	}
 }
