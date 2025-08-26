@@ -19,6 +19,9 @@ LCD::LCD(std::shared_ptr<Memory> mem) : m_Ready(false), m_Mem(mem), m_Surface(nu
 
 LCD::~LCD()
 {
+	// If we are not ready the surfaces have not been created yet.
+	if (!m_Ready) return;
+
 	SDL_DestroySurface(m_Surface);
 	SDL_DestroySurface(m_Screen);
 
