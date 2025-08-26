@@ -1,6 +1,11 @@
 .vscode/
+.vs/
+.zed/
+
 build/
+roms/
 
 *.log
 *.gb
 *.sav
+*.json

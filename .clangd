@@ -1,0 +1,2 @@
+CompileFlags:
+    Add: [--include-directory=../vendored/SDL/include, --include-directory=../include, -std=c++17]

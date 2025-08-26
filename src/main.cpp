@@ -1,4 +1,3 @@
-﻿#include <memory>
 #include <filesystem>
 #include <iostream>
 #include <fstream>
@@ -49,7 +48,7 @@ int main(int argc, char* argv[])
 		SDL_Quit();
 		return 1;
 	}
-	
+
 	SDL_SetRenderVSync(renderer, 1);
 
     std::filesystem::path romPath;
@@ -57,12 +56,12 @@ int main(int argc, char* argv[])
 	else romPath = "Tetris.gb";
 
     GameBoy gb = {romPath, window};
-    if (!gb.IsValid()) 
+    if (!gb.IsValid())
 	{
 		Log::LogCustom("Shuting down SDL", "SDL");
 		SDL_DestroyRenderer(renderer);
 		SDL_DestroyWindow(window);
-		
+
 		SDL_Quit();
 		return 1;
 	}
@@ -73,7 +72,7 @@ int main(int argc, char* argv[])
     }
 
 	Log::LogCustom("Shuting down SDL", "SDL");
-	
+
 	SDL_DestroyRenderer(renderer);
 	SDL_DestroyWindow(window);
 	SDL_Quit();
