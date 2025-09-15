@@ -8,7 +8,7 @@ Requirements:
 - Ninja
 - gcc
 
-1. `git clone --recurse-submodules https://github.com/ThatBit345/GameBoy-Emulator.git BitDMG`
+1. `git clone --recurse-submodules https://github.com/ThatBit345/BitDMG.git BitDMG`
 2. `cd BitDMG`
 3. `mkdir build`
 4. `cmake -S . -B ./build -G Ninja -DCMAKE_BUILD_TYPE=Release`
