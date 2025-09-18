@@ -1,6 +1,7 @@
 .vscode/
 .vs/
 .zed/
+.cache/
 
 build/
 roms/

@@ -6,3 +6,4 @@
 *  @return Bit at position.
 */
 bool GetBit(unsigned char value, int bit);
+bool GetBitU16(unsigned short value, int bit);

@@ -5,9 +5,10 @@
 #include <fstream>
 
 #include <array>
+#include <cmath>
 
 #include "Log.h"
-#include <cmath>
+#include "Utils.h"
 
 Cartridge::Cartridge(std::filesystem::path romPath) : m_RomBank(1), m_RamEnabled(false)
 {
@@ -58,18 +59,10 @@ Cartridge::Cartridge(std::filesystem::path romPath) : m_RomBank(1), m_RamEnabled
 		break;
 
 	case 0x05: // MBC2
-		Log::LogError("Mapper not implemented (MBC2)");
-		m_IsValid = false;
-		return;
-
 		SetHardware(Mapper::MBC2, false, false, false, false, false);
 		break;
 
 	case 0x06: // MBC2 + BATTERY
-		Log::LogError("Mapper not implemented (MBC2)");
-		m_IsValid = false;
-		return;
-
 		SetHardware(Mapper::MBC2, false, true, false, false, false);
 		break;
 
@@ -242,18 +235,25 @@ Cartridge::Cartridge(std::filesystem::path romPath) : m_RomBank(1), m_RamEnabled
 		case 2: // 8KiB
 			m_Ram.resize(8192);
 			break;
-	
+
 		case 3: // 32KiB
 			m_Ram.resize(32768);
 			break;
-	
+
 		case 4: // 128KiB
 			m_Ram.resize(131072);
 			break;
-	
+
 		case 5: // 64KiB
 			m_Ram.resize(65536);
 			break;
+	}
+
+	// MBC2 mapper has 512 half-bits of ram built into the mapper chip itself
+	if(m_Hardware.mapper == Mapper::MBC2)
+	{
+        m_Hardware.hasRam = true;
+        m_Ram.resize(512);
 	}
 
 	std::string ramLogTxt = "RAM size: " + std::to_string(m_Ram.size());
@@ -303,30 +303,30 @@ Cartridge::Cartridge(std::filesystem::path romPath) : m_RomBank(1), m_RamEnabled
 		this->m_IsValid = false;
 		return;
 	}
-	
+
 	Log::LogInfo("Loaded ROM succesfully!");
 	this->m_IsValid = true;
 }
 
 unsigned char Cartridge::ReadU8(int address)
 {
-	if (m_Hardware.mapper == Mapper::MBC1)
+	if (m_Hardware.mapper == Mapper::MBC1 || m_Hardware.mapper == Mapper::MBC2)
 	{
-		if(address < 0x4000) 
+		if(address < 0x4000)
 			return m_Rom[address];
 
 		int bankedAddress = (address - 0x4000) + (m_RomBank * 0x4000);
 		return m_Rom[bankedAddress];
 	}
-	
+
 	return m_Rom[address];
 }
 
 unsigned short Cartridge::ReadU16(int address)
 {
-	if (m_Hardware.mapper == Mapper::MBC1)
+	if (m_Hardware.mapper == Mapper::MBC1 || m_Hardware.mapper == Mapper::MBC2)
 	{
-		if(address < 0x4000) 
+		if(address < 0x4000)
 		{
 			unsigned char lsb = m_Rom[address];
 			unsigned char msb = m_Rom[address + 1];
@@ -356,14 +356,42 @@ unsigned char Cartridge::ReadU8RAM(int address)
 	{
 		return m_Ram[address - 0xA000];
 	}
+	else if(m_Hardware.mapper == Mapper::MBC2)
+	{
+	    if(address > 0xa1ff)
+		{
+		    return m_Ram[address - 0xa1ff] & 0xf;
+		}
+
+		return m_Ram[address - 0xa000] & 0xf;
+	}
 
 	return 0xFF;
 }
 
 unsigned char Cartridge::ReadU16RAM(int address)
 {
-	unsigned char lsb = m_Ram[address - 0xA000];
-	unsigned char msb = m_Ram[address - 0xA000 + 1];
+    unsigned char lsb = 0xff;
+    unsigned char msb = 0xff;
+
+    if(m_Hardware.mapper == Mapper::MBC1)
+    {
+        lsb = m_Ram[address - 0xA000];
+	    msb = m_Ram[address - 0xA000 + 1];
+    }
+    else if (m_Hardware.mapper == Mapper::MBC2)
+    {
+        if(address > 0xa1ff)
+        {
+            lsb = m_Ram[address - 0xa1ff] & 0xf;
+            msb = m_Ram[address - 0xa1ff + 1] & 0xf;
+        }
+        else
+        {
+            lsb = m_Ram[address - 0xa000] & 0xf;
+            msb = m_Ram[address - 0xa000 + 1] & 0xf;
+        }
+    }
 
 	return ((unsigned short)msb << 8) | lsb;
 }
@@ -375,6 +403,15 @@ void Cartridge::WriteU8RAM(int address, unsigned char value)
 	if(m_Hardware.mapper == Mapper::MBC1)
 	{
 		m_Ram[address - 0xA000] = value;
+	}
+	else if(m_Hardware.mapper == Mapper::MBC2)
+	{
+	    if(address > 0xa1ff)
+		{
+		    m_Ram[address - 0xa1ff] = value & 0xf;
+		}
+
+		m_Ram[address - 0xa000] = value & 0xf;
 	}
 
 	SaveGameToFile();
@@ -389,6 +426,19 @@ void Cartridge::WriteU16RAM(int address, unsigned short value)
 		m_Ram[address - 0xA000] = value & 0xFF;
 		m_Ram[address - 0xA000 + 1] = value >> 8;
 	}
+	else if (m_Hardware.mapper == Mapper::MBC2)
+    {
+        if(address > 0xa1ff)
+        {
+            m_Ram[address - 0xa1ff] = (value & 0xff) & 0xf;
+            m_Ram[address - 0xa1ff + 1] = (value >> 8) & 0xf;
+        }
+        else
+        {
+            m_Ram[address - 0xa000] = (value & 0xff) & 0xf;
+            m_Ram[address - 0xa000 + 1] = (value >> 8) & 0xf;
+        }
+    }
 
 	SaveGameToFile();
 }
@@ -402,7 +452,19 @@ void Cartridge::WriteU16RAM(int address, unsigned char lsb, unsigned char msb)
 		m_Ram[address - 0xA000] = lsb;
 		m_Ram[address - 0xA000 + 1] = msb;
 	}
-
+	else if (m_Hardware.mapper == Mapper::MBC2)
+    {
+        if(address > 0xa1ff)
+        {
+            m_Ram[address - 0xa1ff] = lsb & 0xf;
+            m_Ram[address - 0xa1ff + 1] = msb & 0xf;
+        }
+        else
+        {
+            m_Ram[address - 0xa000] = lsb & 0xf;
+            m_Ram[address - 0xa000 + 1] = msb & 0xf;
+        }
+    }
 	SaveGameToFile();
 }
 
@@ -421,6 +483,20 @@ void Cartridge::CheckROMWrite(int address, unsigned char value)
 		else if (address >= 0x4000 && address <= 0x5FFF && m_Rom[0x0148] >= 0x05) // Second RAM/ROM Bank switch (only if ROM > 1MiB)
 		{
 			// TO-DO
+		}
+	}
+	else if (m_Hardware.mapper == Mapper::MBC2)
+	{
+	    if(address <= 0x3fff)
+		{
+			if(GetBitU16(address, 8)) // Switch ROM bank
+		    {
+		        m_RomBank = (value == 0) ? 1 : (value & 0b00001111);
+		    }
+			else // Enable/disable RAM
+		    {
+                m_RamEnabled = (value & 0b00001111) == 0xA;
+		    }
 		}
 	}
 }
