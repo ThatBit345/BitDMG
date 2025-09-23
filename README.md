@@ -11,6 +11,7 @@ Simple gameboy emulator written in C++ with SDL3.
 - B: Z
 - START: RETURN
 - SELECT: BACKSPACE
+- 1->4: Change palette
 
 # Build
 ## Windows
