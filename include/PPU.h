@@ -27,6 +27,11 @@ public:
 	 */
 	void ConfigureLCD(SDL_Window *window);
 
+	/* Set current color palette on the LCD.
+	 * @param id ID of the palette.
+	 */
+	void SetLCDPalette(int id);
+
 private:
 	std::shared_ptr<Memory> m_Mem;
 

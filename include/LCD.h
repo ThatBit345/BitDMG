@@ -43,6 +43,11 @@ public:
 	 */
 	void ShowTiles();
 
+	/* Set the palette to use during rendering.
+	 * @param id ID of palette to use.
+	 */
+	void SetActivePalette(int id);
+
 	bool bgEnabled;
 
 private:
@@ -53,7 +58,9 @@ private:
 	SDL_Surface *m_Screen;
 	SDL_Rect m_BlitRect;
 
-	unsigned int m_Palette[4];
+	unsigned int m_Palette[16];
+	int m_CurrentPalette;
+
 	std::array<int, 10> m_Sprites;
 	std::array<bool, 160> m_SpritePriorityMask;
 

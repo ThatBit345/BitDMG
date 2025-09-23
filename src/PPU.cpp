@@ -40,7 +40,7 @@ void PPU::Tick(int cycles)
 	switch (m_Mode)
 	{
 	// H-Blank
-	case 0: 
+	case 0:
 		if (m_Clock >= 204)
 		{
 			m_Clock -= 204;
@@ -119,7 +119,7 @@ void PPU::Tick(int cycles)
 		break;
 
 	// OAM Scan
-	case 2: 
+	case 2:
 		m_Mem->LockOAM();
 
 		if (m_Clock >= 80)
@@ -166,7 +166,7 @@ void PPU::Tick(int cycles)
 		break;
 
 	// Scanline draw
-	case 3: 
+	case 3:
 		m_Mem->LockOAM();
 		m_Mem->LockVRAM();
 
@@ -235,6 +235,11 @@ void PPU::PrintTiles()
 void PPU::ConfigureLCD(SDL_Window *window)
 {
 	m_LCD.SetWindow(window);
+}
+
+void PPU::SetLCDPalette(int id)
+{
+    m_LCD.SetActivePalette(id);
 }
 
 void PPU::Render()

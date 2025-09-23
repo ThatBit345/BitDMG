@@ -15,7 +15,7 @@ GameBoy::GameBoy(std::filesystem::path romPath, SDL_Window *window) : m_CPU(null
 		m_Valid = false;
 		return;
 	}
-	
+
 	m_Cartridge = std::make_shared<Cartridge>(romPath.string().c_str());
 
 	if (!m_Cartridge->IsValid())
@@ -94,6 +94,22 @@ void GameBoy::Update()
 			else if (event.key.scancode == SDL_SCANCODE_BACKSPACE)
 			{
 				m_InputBuffer[InputButtons::SELECT] = true;
+			}
+			else if (event.key.scancode == SDL_SCANCODE_1)
+			{
+                m_PPU.SetLCDPalette(0);
+			}
+			else if (event.key.scancode == SDL_SCANCODE_2)
+			{
+                m_PPU.SetLCDPalette(1);
+			}
+			else if (event.key.scancode == SDL_SCANCODE_3)
+			{
+                m_PPU.SetLCDPalette(2);
+			}
+			else if (event.key.scancode == SDL_SCANCODE_4)
+			{
+                m_PPU.SetLCDPalette(3);
 			}
 		}
 		else if (event.type == SDL_EVENT_KEY_UP)

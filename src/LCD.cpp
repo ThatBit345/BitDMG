@@ -7,12 +7,31 @@
 #include "Log.h"
 #include "Utils.h"
 
-LCD::LCD(std::shared_ptr<Memory> mem) : m_Ready(false), m_Mem(mem), m_Surface(nullptr)
+LCD::LCD(std::shared_ptr<Memory> mem) : m_Ready(false), m_Mem(mem), m_Surface(nullptr), m_CurrentPalette(0)
 {
+    // 0 -> GB Green
 	m_Palette[0] = 0xBADA55; // Lighter color
 	m_Palette[1] = 0x82993B;
 	m_Palette[2] = 0x4A5722;
 	m_Palette[3] = 0x121608; // Darker color
+
+	// 1 -> Black & white
+	m_Palette[4] = 0xF8F8F8; // Lighter color
+	m_Palette[5] = 0xB8B8B8;
+	m_Palette[6] = 0x717171;
+	m_Palette[7] = 0x030303; // Darker color
+
+	// 2 -> Blue-ish
+	m_Palette[8] = 0x7D84AD; // Lighter color
+	m_Palette[9] = 0x585C79;
+	m_Palette[10] = 0x323545;
+	m_Palette[11] = 0x0C0D11; // Darker color
+
+	// 3 -> Peach
+	m_Palette[12] = 0xFFBA7C; // Lighter color
+	m_Palette[13] = 0xB38257;
+	m_Palette[14] = 0x664A32;
+	m_Palette[15] = 0x19130C; // Darker color
 
 	m_SpritePriorityMask.fill(false);
 }
@@ -117,7 +136,7 @@ void LCD::DrawScanline(int LY)
 				color = (((msb >> j) & 0b1) << 1) | ((lsb >> j) & 0b1);
 
 				int colorIndex = m_Mem->ReadU8(IO::BGP);
-				int paletteColor = m_Palette[(colorIndex >> (color * 2)) & 0b11];
+				int paletteColor = m_Palette[((colorIndex >> (color * 2)) & 0b11) + (m_CurrentPalette * 4)];
 
 				if (x >= 0 && x < 160 && color == 0)
 					m_SpritePriorityMask[x] = true;
@@ -181,7 +200,7 @@ void LCD::DrawScanline(int LY)
 					color = (((msb >> j) & 0b1) << 1) | ((lsb >> j) & 0b1);
 
 					int colorIndex = m_Mem->ReadU8(IO::BGP);
-					int paletteColor = m_Palette[(colorIndex >> (color * 2)) & 0b11];
+					int paletteColor = m_Palette[((colorIndex >> (color * 2)) & 0b11) + (m_CurrentPalette * 4)];
 
 					if (x >= 0 && x < 160 && color == 0)
 						m_SpritePriorityMask[x] = true;
@@ -199,9 +218,9 @@ void LCD::DrawScanline(int LY)
 	}
 	else
 	{
-		int r = (m_Palette[0] & 0xFF0000) >> 16;
-		int g = (m_Palette[0] & 0x00FF00) >> 8;
-		int b = (m_Palette[0] & 0x0000FF);
+		int r = (m_Palette[m_CurrentPalette * 4] & 0xFF0000) >> 16;
+		int g = (m_Palette[m_CurrentPalette * 4] & 0x00FF00) >> 8;
+		int b = (m_Palette[m_CurrentPalette * 4] & 0x0000FF);
 
 		for (size_t i = 0; i < 160; i++)
 		{
@@ -264,7 +283,7 @@ void LCD::DrawScanline(int LY)
 			if (color > 0 && !prioritySkip)
 			{
 				int colorIndex = m_Mem->ReadU8(paletteBank);
-				int paletteColor = m_Palette[(colorIndex >> (color * 2)) & 0b11];
+				int paletteColor = m_Palette[((colorIndex >> (color * 2)) & 0b11) + (m_CurrentPalette * 4)];
 
 				int r = (paletteColor & 0xFF0000) >> 16;
 				int g = (paletteColor & 0x00FF00) >> 8;
@@ -279,14 +298,14 @@ void LCD::DrawScanline(int LY)
 				pixelIteration++;
 			else
 				pixelIteration--;
-			
+
 		} while (pixelIteration <= 7 && pixelIteration >= 0);
 	}
 }
 
 void LCD::DisableLCD()
 {
-	SDL_FillSurfaceRect(m_Surface, NULL, m_Palette[0]);
+	SDL_FillSurfaceRect(m_Surface, NULL, m_Palette[m_CurrentPalette * 4]);
 }
 
 void LCD::Render()
@@ -315,7 +334,7 @@ void LCD::ShowTiles()
 			color = (GetBit(msb, j) << 1) | GetBit(lsb, j);
 
 			unsigned char colorIndex = m_Mem->ReadU8(IO::BGP);
-			int paletteColor = m_Palette[(colorIndex >> (color * 2)) & 0b11];
+			int paletteColor = m_Palette[((colorIndex >> (color * 2)) & 0b11) + (m_CurrentPalette * 4)];
 
 			int r = (paletteColor & 0xFF0000) >> 16;
 			int g = (paletteColor & 0x00FF00) >> 8;
@@ -343,4 +362,10 @@ void LCD::ShowTiles()
 			}
 		}
 	}
+}
+
+void LCD::SetActivePalette(int id)
+{
+    Log::LogInfo("Palette changed");
+    m_CurrentPalette = id;
 }
